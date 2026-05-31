@@ -25,12 +25,7 @@ CREATE TABLE library_items (
     finished_at TIMESTAMPTZ,
     cover_path TEXT NOT NULL DEFAULT '',
     notes TEXT NOT NULL DEFAULT '',
-    search_vector TSVECTOR GENERATED ALWAYS AS (
-        setweight(to_tsvector('simple', coalesce(title, '')), 'A') ||
-        setweight(to_tsvector('simple', coalesce(author, '')), 'B') ||
-        setweight(to_tsvector('simple', coalesce(array_to_string(genres, ' '), '')), 'C') ||
-        setweight(to_tsvector('simple', coalesce(description, '')), 'D')
-    ) STORED,
+    search_vector TSVECTOR NOT NULL DEFAULT '',
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     CHECK (total_chapters IS NULL OR current_chapter IS NULL OR current_chapter <= total_chapters)
@@ -45,6 +40,25 @@ CREATE INDEX library_items_user_read_at_idx ON library_items(user_id, read_at DE
 CREATE INDEX library_items_genres_idx ON library_items USING GIN (genres);
 CREATE INDEX library_items_search_idx ON library_items USING GIN (search_vector);
 
+-- +goose StatementBegin
+CREATE OR REPLACE FUNCTION set_library_items_search_vector()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.search_vector =
+        setweight(to_tsvector('simple', coalesce(NEW.title, '')), 'A') ||
+        setweight(to_tsvector('simple', coalesce(NEW.author, '')), 'B') ||
+        setweight(to_tsvector('simple', coalesce(array_to_string(NEW.genres, ' '), '')), 'C') ||
+        setweight(to_tsvector('simple', coalesce(NEW.description, '')), 'D');
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+-- +goose StatementEnd
+
+CREATE TRIGGER library_items_set_search_vector
+BEFORE INSERT OR UPDATE OF title, author, genres, description ON library_items
+FOR EACH ROW
+EXECUTE FUNCTION set_library_items_search_vector();
+
 CREATE TRIGGER library_items_set_updated_at
 BEFORE UPDATE ON library_items
 FOR EACH ROW
@@ -52,4 +66,6 @@ EXECUTE FUNCTION set_updated_at();
 
 -- +goose Down
 DROP TRIGGER IF EXISTS library_items_set_updated_at ON library_items;
+DROP TRIGGER IF EXISTS library_items_set_search_vector ON library_items;
 DROP TABLE IF EXISTS library_items;
+DROP FUNCTION IF EXISTS set_library_items_search_vector();

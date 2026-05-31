@@ -1,0 +1,26 @@
+package users
+
+import (
+	"log"
+
+	"github.com/alexedwards/argon2id"
+)
+
+func (p *password) Set(plainText string) error {
+	hash, err := argon2id.CreateHash(plainText, argon2id.DefaultParams)
+	if err != nil {
+		return err
+	}
+
+	p.plaintext = &plainText
+	p.hash = hash
+	return nil
+}
+
+func (p *password) Matches(plainText string) (bool, error) {
+	match, err := argon2id.ComparePasswordAndHash(plainText, p.hash)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return match, nil
+}

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"log"
@@ -11,7 +12,12 @@ import (
 	"syscall"
 	"time"
 
+	"Librorum/internal/books"
+	db "Librorum/internal/platform/storage/sqlc"
 	"Librorum/internal/storage"
+	"Librorum/internal/users"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type Config struct {
@@ -21,20 +27,43 @@ type Config struct {
 }
 
 type App struct {
-	config Config
-	paths  storage.Paths
+	config      Config
+	paths       storage.Paths
+	bookHandler *books.Handler
+	userHandler *users.UserHandle
 }
 
 func main() {
+	appCtx := context.Background()
+	setupCtx, cancel := context.WithTimeout(appCtx, 10*time.Second)
+	defer cancel()
+
+	dbPool, err := pgxpool.New(setupCtx, envOrDefault("LIBRORUM_DATABASE_URL", ""))
+	if err != nil || dbPool.Ping(setupCtx) != nil {
+		log.Fatalf("Failed to connect to Postgres: %v", err)
+	}
+
+	defer dbPool.Close()
 	config := configFromEnv()
 	paths := storage.NewPaths(config.DataDir)
 	if err := storage.EnsureDirs(paths); err != nil {
 		log.Fatalf("prepare storage directories: %v", err)
 	}
 
+	h := &books.Handler{
+		Db:      dbPool,
+		Queries: db.New(dbPool),
+	}
+	u := &users.UserHandle{
+		DB:      dbPool,
+		Queries: db.New(dbPool),
+	}
+
 	app := &App{
-		config: config,
-		paths:  paths,
+		config:      config,
+		paths:       paths,
+		bookHandler: h,
+		userHandler: u,
 	}
 
 	server := &http.Server{
@@ -45,6 +74,7 @@ func main() {
 
 	go func() {
 		log.Printf("librorum listening on %s", config.Addr)
+		log.Printf("database url configured: %t", os.Getenv("LIBRORUM_DATABASE_URL") != "")
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatalf("http server: %v", err)
 		}
@@ -60,22 +90,13 @@ func main() {
 func (a *App) routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", a.handleHealth)
-	mux.HandleFunc("GET /api/example/library-items", a.handleExampleLibraryItems)
+	mux.HandleFunc("GET /api/example/library-items", a.bookHandler.DisplayBooks)
+	mux.HandleFunc("POST /users/register", a.userHandler.Register)
 	return logRequests(mux)
 }
 
 func (a *App) handleHealth(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
-}
-
-func (a *App) handleExampleLibraryItems(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{
-		"message": "replace this with your sqlc-backed library item handler",
-		"storage": map[string]string{
-			"books_dir":  a.paths.BooksDir,
-			"covers_dir": a.paths.CoverCacheDir,
-		},
-	})
 }
 
 func configFromEnv() Config {
