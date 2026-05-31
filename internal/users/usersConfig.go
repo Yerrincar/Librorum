@@ -18,8 +18,8 @@ type UserProfile struct {
 }
 
 type password struct {
-	plaintext *string
-	hash      string
+	Plaintext *string
+	Hash      string
 }
 
 type UserHandle struct {

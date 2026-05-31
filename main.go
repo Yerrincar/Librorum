@@ -38,7 +38,12 @@ func main() {
 	setupCtx, cancel := context.WithTimeout(appCtx, 10*time.Second)
 	defer cancel()
 
-	dbPool, err := pgxpool.New(setupCtx, envOrDefault("LIBRORUM_DATABASE_URL", ""))
+	databaseURL := envOrDefault("LIBRORUM_DATABASE_URL", "")
+	if databaseURL == "" {
+		log.Fatal("LIBRORUM_DATABASE_URL is required")
+	}
+
+	dbPool, err := pgxpool.New(setupCtx, databaseURL)
 	if err != nil || dbPool.Ping(setupCtx) != nil {
 		log.Fatalf("Failed to connect to Postgres: %v", err)
 	}

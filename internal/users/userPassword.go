@@ -12,13 +12,13 @@ func (p *password) Set(plainText string) error {
 		return err
 	}
 
-	p.plaintext = &plainText
-	p.hash = hash
+	p.Plaintext = &plainText
+	p.Hash = hash
 	return nil
 }
 
 func (p *password) Matches(plainText string) (bool, error) {
-	match, err := argon2id.ComparePasswordAndHash(plainText, p.hash)
+	match, err := argon2id.ComparePasswordAndHash(plainText, p.Hash)
 	if err != nil {
 		log.Fatal(err)
 	}

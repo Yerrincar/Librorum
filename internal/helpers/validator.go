@@ -58,7 +58,6 @@ func VerifyPassword(value string) bool {
 			special = true
 			numCharacters++
 		case unicode.IsLetter(c) || c == ' ':
-			continue
 			numCharacters++
 		default:
 			return false
