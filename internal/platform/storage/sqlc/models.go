@@ -49,8 +49,8 @@ type LibraryItem struct {
 
 type User struct {
 	ID           int64              `json:"id"`
-	Username     string             `json:"username"`
 	Email        string             `json:"email"`
+	Username     string             `json:"username"`
 	PasswordHash string             `json:"password_hash"`
 	DisplayName  string             `json:"display_name"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`

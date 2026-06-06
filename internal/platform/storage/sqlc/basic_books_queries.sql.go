@@ -10,7 +10,7 @@ import (
 )
 
 const insertUser = `-- name: InsertUser :one
-INSERT INTO users (username, email, password_hash, display_name) VALUES ($1,$2,$3,$4) RETURNING id, username, email, password_hash, display_name, created_at, updated_at
+INSERT INTO users (username, email, password_hash, display_name) VALUES ($1,$2,$3,$4) RETURNING id, email, username, password_hash, display_name, created_at, updated_at
 `
 
 type InsertUserParams struct {
@@ -30,8 +30,8 @@ func (q *Queries) InsertUser(ctx context.Context, arg InsertUserParams) (User, e
 	var i User
 	err := row.Scan(
 		&i.ID,
-		&i.Username,
 		&i.Email,
+		&i.Username,
 		&i.PasswordHash,
 		&i.DisplayName,
 		&i.CreatedAt,

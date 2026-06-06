@@ -1,4 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import BooksView from '@/views/BooksView.vue'
+import HomeView from '@/views/HomeView.vue'
 import RegisterView from '@/views/RegisterView.vue'
 
 const router = createRouter({
@@ -6,7 +8,13 @@ const router = createRouter({
   routes: [
     {
       path: '/',
-      redirect: '/register',
+      name: 'home',
+      component: HomeView,
+    },
+    {
+      path: '/books',
+      name: 'books',
+      component: BooksView,
     },
     {
       path: '/register',
