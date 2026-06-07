@@ -13,8 +13,6 @@ import (
 	"sync"
 	"syscall"
 	"time"
-
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type App struct {
@@ -23,7 +21,7 @@ type App struct {
 	Wg          *sync.WaitGroup
 }
 
-func (a *App) Serve(l *Logger, cfg *Config, dbPool *pgxpool.Pool, ctx context.Context) error {
+func (a *App) Serve(l *Logger, cfg *Config) error {
 	server := &http.Server{
 		Addr:         cfg.Addr,
 		Handler:      a.routes(),
@@ -39,6 +37,9 @@ func (a *App) Serve(l *Logger, cfg *Config, dbPool *pgxpool.Pool, ctx context.Co
 		l.Info("Shuting down server", map[string]string{
 			"signal": s.String(),
 		})
+
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel()
 
 		err := server.Shutdown(ctx)
 		if err != nil {
@@ -82,9 +83,14 @@ func (a *App) routes() http.Handler {
 
 func logRequests(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
+		defer func() {
+			if err := recover(); err != nil {
+				start := time.Now()
+				w.Header().Set("Connection", "close")
+				log.Printf("%s %s %s", r.Method, r.URL.Path, time.Since(start))
+			}
+		}()
 		next.ServeHTTP(w, r)
-		log.Printf("%s %s %s", r.Method, r.URL.Path, time.Since(start))
 	})
 }
 

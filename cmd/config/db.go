@@ -18,7 +18,7 @@ func OpenDB(l *Logger, cfg *Config, ctx context.Context) (*pgxpool.Pool, error) 
 func DBConfig(l *Logger, cfg *Config) *pgxpool.Config {
 	dbConfig, err := pgxpool.ParseConfig(cfg.DB.dsn)
 	if err != nil {
-		l.Fatal("Error trying to parse DB config: %v"+err.Error(), nil)
+		l.Error("Error trying to parse DB config: %v"+err.Error(), nil)
 	}
 
 	dbConfig.MaxConns = int32(cfg.DB.maxConnections)

@@ -2,8 +2,9 @@ package main
 
 import (
 	"context"
-	"log"
+	"encoding/gob"
 	"os"
+	"sync"
 	"time"
 
 	"Librorum/cmd/config"
@@ -21,13 +22,18 @@ func main() {
 
 	logger := logger.New(os.Stdout, logger.LevelInfo)
 
-	cfg, _ := config.LoadConfig(logger)
-
-	dbPool, err := config.OpenDB(logger, cfg, setupCtx)
-	if err != nil || dbPool.Ping(setupCtx) != nil {
-		logger.Fatal("Failed to connect to DB: %v"+err.Error(), nil)
+	cfg, err := config.LoadConfig(logger)
+	if err != nil {
+		logger.Fatal("Failed to Load the configuration of the server: "+err.Error(), nil)
 	}
 
+	dbPool, err := config.OpenDB(logger, cfg, setupCtx)
+	if err != nil {
+		logger.Fatal("Failed to connect to DB: "+err.Error(), nil)
+	}
+	if dbPool.Ping(setupCtx) != nil {
+		logger.Fatal("Failed to ping the DB: "+dbPool.Ping(setupCtx).Error(), nil)
+	}
 	defer dbPool.Close()
 
 	paths := storage.NewPaths(cfg.DataDir)
@@ -46,9 +52,11 @@ func main() {
 	app := &config.App{
 		BookHandler: h,
 		UserHandler: u,
+		Wg:          &sync.WaitGroup{},
 	}
+	gob.Register(&u.User.Id)
 
-	app.Serve(logger, cfg, dbPool, setupCtx)
+	app.Serve(logger, cfg)
 
-	log.Print("librorum shutting down")
+	logger.Info("librorum shutting down", nil)
 }
