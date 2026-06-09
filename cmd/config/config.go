@@ -25,8 +25,8 @@ type Config struct {
 	}
 	Secret struct {
 		HMC               string
-		secretKey         []byte
-		sessionExpiration time.Duration
+		SecretKey         []byte
+		SessionExpiration time.Duration
 	}
 }
 
@@ -61,12 +61,12 @@ func LoadConfig(l *Logger) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	cfg.Secret.secretKey = secretKey
+	cfg.Secret.SecretKey = secretKey
 	sessionDuration, err := time.ParseDuration(os.Getenv("SESSION_EXPIRATION"))
 	if err != nil {
 		return nil, err
 	}
-	cfg.Secret.sessionExpiration = sessionDuration
+	cfg.Secret.SessionExpiration = sessionDuration
 
 	tokexpirationStr := os.Getenv("TOKEN_EXPIRATION")
 	duration, err := time.ParseDuration(tokexpirationStr)

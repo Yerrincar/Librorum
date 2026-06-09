@@ -47,6 +47,14 @@ type LibraryItem struct {
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 }
 
+type Session struct {
+	ID        int64            `json:"id"`
+	UserID    int64            `json:"user_id"`
+	Hash      *string          `json:"hash"`
+	CreatedAt pgtype.Timestamp `json:"created_at"`
+	ExpiresAt pgtype.Timestamp `json:"expires_at"`
+}
+
 type User struct {
 	ID           int64              `json:"id"`
 	Email        string             `json:"email"`

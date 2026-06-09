@@ -12,7 +12,7 @@ import (
 	"Librorum/internal/books"
 	db "Librorum/internal/platform/storage/sqlc"
 	"Librorum/internal/storage"
-	users "Librorum/internal/users/register"
+	users "Librorum/internal/users"
 )
 
 func main() {
@@ -45,9 +45,12 @@ func main() {
 		Db:      dbPool,
 		Queries: db.New(dbPool),
 	}
+
 	u := &users.UserHandle{
-		DB:      dbPool,
-		Queries: db.New(dbPool),
+		DB:            dbPool,
+		Queries:       db.New(dbPool),
+		Logger:        logger,
+		SessionConfig: cfg.Secret,
 	}
 	app := &config.App{
 		BookHandler: h,

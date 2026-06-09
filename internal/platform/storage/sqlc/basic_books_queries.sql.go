@@ -91,3 +91,60 @@ func (q *Queries) SelectBooks(ctx context.Context, arg SelectBooksParams) ([]Lib
 	}
 	return items, nil
 }
+
+const selectUserByEmail = `-- name: SelectUserByEmail :one
+SELECT id, email, username, password_hash, display_name, created_at, updated_at FROM users WHERE email = $1
+`
+
+func (q *Queries) SelectUserByEmail(ctx context.Context, email string) (User, error) {
+	row := q.db.QueryRow(ctx, selectUserByEmail, email)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.Username,
+		&i.PasswordHash,
+		&i.DisplayName,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const selectUserByID = `-- name: SelectUserByID :one
+SELECT id, email, username, password_hash, display_name, created_at, updated_at FROM users WHERE id = $1
+`
+
+func (q *Queries) SelectUserByID(ctx context.Context, id int64) (User, error) {
+	row := q.db.QueryRow(ctx, selectUserByID, id)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.Username,
+		&i.PasswordHash,
+		&i.DisplayName,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const selectUserByUsername = `-- name: SelectUserByUsername :one
+SELECT id, email, username, password_hash, display_name, created_at, updated_at FROM users WHERE username = $1
+`
+
+func (q *Queries) SelectUserByUsername(ctx context.Context, username string) (User, error) {
+	row := q.db.QueryRow(ctx, selectUserByUsername, username)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.Username,
+		&i.PasswordHash,
+		&i.DisplayName,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}

@@ -8,6 +8,18 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+type Logger interface {
+	Info(message string, properties map[string]string)
+	Error(message string, properties map[string]string)
+	Debug(message string, properties map[string]string)
+}
+
+type SessionConfig struct {
+	HMC               string
+	SecretKey         []byte
+	SessionExpiration time.Duration
+}
+
 type UserProfile struct {
 	Id          int       `json:"id"`
 	Username    string    `json:"username"`
@@ -23,9 +35,11 @@ type password struct {
 }
 
 type UserHandle struct {
-	DB      *pgxpool.Pool
-	Queries *db.Queries
-	User    *UserProfile
+	DB            *pgxpool.Pool
+	Queries       *db.Queries
+	User          *UserProfile
+	Logger        Logger
+	SessionConfig SessionConfig
 }
 
 var (

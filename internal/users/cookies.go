@@ -1,4 +1,4 @@
-package login
+package users
 
 import (
 	"crypto/aes"
@@ -103,8 +103,7 @@ func ReadEncrypted(r *http.Request, name string, secretKey []byte) (string, erro
 	}
 
 	if expectedName != name {
-		return "", ErrInvalidValue
+		return "", nil
 	}
-
 	return value, nil
 }

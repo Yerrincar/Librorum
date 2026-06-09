@@ -2,7 +2,7 @@ package config
 
 import (
 	"Librorum/internal/books"
-	users "Librorum/internal/users/register"
+	"Librorum/internal/users"
 	"context"
 	"encoding/json"
 	"errors"
@@ -78,6 +78,7 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("GET /healthz", a.handleHealth)
 	mux.HandleFunc("GET /api/example/library-items", a.BookHandler.DisplayBooks)
 	mux.HandleFunc("POST /users/register", a.UserHandler.Register)
+	mux.HandleFunc("POST /users/login", a.UserHandler.LoginUser)
 	return logRequests(mux)
 }
 
