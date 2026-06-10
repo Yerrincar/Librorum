@@ -12,6 +12,18 @@ export type RegisterResponse = {
   display_name: string
 }
 
+export type LoginRequest = {
+  username: string
+  password: string
+}
+
+export type UserResponse = {
+  id?: number
+  username: string
+  email?: string
+  display_name?: string
+}
+
 type ApiErrorResponse = {
   error?: string
   message?: string
@@ -41,13 +53,54 @@ export async function registerUser(payload: RegisterRequest): Promise<RegisterRe
   return response.json()
 }
 
-async function readErrorMessage(response: Response): Promise<string> {
+export async function loginUser(payload: LoginRequest): Promise<UserResponse> {
+  const response = await fetch('/users/login', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
+    body: JSON.stringify(payload),
+  })
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, 'Login failed'))
+  }
+
+  return response.json()
+}
+
+export async function getCurrentUser(): Promise<UserResponse> {
+  const response = await fetch('/users/currentUser', {
+    method: 'POST',
+    credentials: 'include',
+  })
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, 'Current user failed'))
+  }
+
+  return response.json()
+}
+
+export async function logoutUser(): Promise<void> {
+  const response = await fetch('/users/logout', {
+    method: 'POST',
+    credentials: 'include',
+  })
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, 'Logout failed'))
+  }
+}
+
+async function readErrorMessage(response: Response, fallback = 'Registration failed'): Promise<string> {
   const contentType = response.headers.get('content-type') ?? ''
   if (contentType.includes('application/json')) {
     const body = (await response.json()) as ApiErrorResponse
-    return body.error ?? body.message ?? 'Registration failed'
+    return body.error ?? body.message ?? fallback
   }
 
   const text = await response.text()
-  return text || 'Registration failed'
+  return text || fallback
 }

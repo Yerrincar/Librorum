@@ -48,11 +48,11 @@ type LibraryItem struct {
 }
 
 type Session struct {
-	ID        int64            `json:"id"`
-	UserID    int64            `json:"user_id"`
-	Hash      *string          `json:"hash"`
-	CreatedAt pgtype.Timestamp `json:"created_at"`
-	ExpiresAt pgtype.Timestamp `json:"expires_at"`
+	ID        int64              `json:"id"`
+	UserID    int64              `json:"user_id"`
+	TokenHash string             `json:"token_hash"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
 }
 
 type User struct {

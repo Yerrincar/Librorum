@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/gob"
 	"os"
 	"sync"
 	"time"
@@ -57,7 +56,6 @@ func main() {
 		UserHandler: u,
 		Wg:          &sync.WaitGroup{},
 	}
-	gob.Register(&u.User.Id)
 
 	app.Serve(logger, cfg)
 

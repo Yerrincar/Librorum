@@ -1,10 +1,6 @@
 package users
 
-import (
-	"log"
-
-	"github.com/alexedwards/argon2id"
-)
+import "github.com/alexedwards/argon2id"
 
 func (p *password) Set(plainText string) error {
 	hash, err := argon2id.CreateHash(plainText, argon2id.DefaultParams)
@@ -20,7 +16,7 @@ func (p *password) Set(plainText string) error {
 func (p *password) Matches(plainText string) (bool, error) {
 	match, err := argon2id.ComparePasswordAndHash(plainText, p.Hash)
 	if err != nil {
-		log.Fatal(err)
+		return false, err
 	}
 	return match, nil
 }

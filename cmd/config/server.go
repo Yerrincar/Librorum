@@ -75,10 +75,14 @@ func (a *App) Serve(l *Logger, cfg *Config) error {
 
 func (a *App) routes() http.Handler {
 	mux := http.NewServeMux()
+	//GET
 	mux.HandleFunc("GET /healthz", a.handleHealth)
+	mux.HandleFunc("GET /users/currentUser", a.UserHandler.CurrentUser)
+	//POST
 	mux.HandleFunc("GET /api/example/library-items", a.BookHandler.DisplayBooks)
 	mux.HandleFunc("POST /users/register", a.UserHandler.Register)
 	mux.HandleFunc("POST /users/login", a.UserHandler.LoginUser)
+	mux.HandleFunc("POST /users/logout", a.UserHandler.Logout)
 	return logRequests(mux)
 }
 

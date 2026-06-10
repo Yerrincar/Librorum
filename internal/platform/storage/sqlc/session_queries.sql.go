@@ -7,105 +7,71 @@ package db
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createSession = `-- name: CreateSession :one
-INSERT INTO sessions (user_id, hash) VALUES ($1,$2) RETURNING id, user_id, hash, created_at, expires_at
+INSERT INTO sessions (user_id, token_hash, expires_at) VALUES ($1, $2, $3) RETURNING id, user_id, token_hash, created_at, expires_at
 `
 
 type CreateSessionParams struct {
-	UserID int64   `json:"user_id"`
-	Hash   *string `json:"hash"`
+	UserID    int64              `json:"user_id"`
+	TokenHash string             `json:"token_hash"`
+	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
 }
 
 func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error) {
-	row := q.db.QueryRow(ctx, createSession, arg.UserID, arg.Hash)
+	row := q.db.QueryRow(ctx, createSession, arg.UserID, arg.TokenHash, arg.ExpiresAt)
 	var i Session
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
-		&i.Hash,
+		&i.TokenHash,
 		&i.CreatedAt,
 		&i.ExpiresAt,
 	)
 	return i, err
 }
 
-const deleteExpiredSessions = `-- name: DeleteExpiredSessions :one
-DELETE FROM sessions WHERE expires_at < NOW() RETURNING id, user_id, hash, created_at, expires_at
+const deleteExpiredSessions = `-- name: DeleteExpiredSessions :exec
+DELETE FROM sessions WHERE expires_at < NOW()
 `
 
-func (q *Queries) DeleteExpiredSessions(ctx context.Context) (Session, error) {
-	row := q.db.QueryRow(ctx, deleteExpiredSessions)
-	var i Session
-	err := row.Scan(
-		&i.ID,
-		&i.UserID,
-		&i.Hash,
-		&i.CreatedAt,
-		&i.ExpiresAt,
-	)
-	return i, err
+func (q *Queries) DeleteExpiredSessions(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, deleteExpiredSessions)
+	return err
 }
 
-const deleteSessionByTokenHash = `-- name: DeleteSessionByTokenHash :one
-DELETE FROM sessions WHERE hash = $1 RETURNING id, user_id, hash, created_at, expires_at
+const deleteSessionByTokenHash = `-- name: DeleteSessionByTokenHash :exec
+DELETE FROM sessions WHERE token_hash = $1
 `
 
-func (q *Queries) DeleteSessionByTokenHash(ctx context.Context, hash *string) (Session, error) {
-	row := q.db.QueryRow(ctx, deleteSessionByTokenHash, hash)
-	var i Session
-	err := row.Scan(
-		&i.ID,
-		&i.UserID,
-		&i.Hash,
-		&i.CreatedAt,
-		&i.ExpiresAt,
-	)
-	return i, err
+func (q *Queries) DeleteSessionByTokenHash(ctx context.Context, tokenHash string) error {
+	_, err := q.db.Exec(ctx, deleteSessionByTokenHash, tokenHash)
+	return err
 }
 
-const deleteSessionByUserID = `-- name: DeleteSessionByUserID :many
-DELETE FROM sessions WHERE user_id = $1 RETURNING id, user_id, hash, created_at, expires_at
+const deleteSessionsByUserID = `-- name: DeleteSessionsByUserID :exec
+DELETE FROM sessions WHERE user_id = $1
 `
 
-func (q *Queries) DeleteSessionByUserID(ctx context.Context, userID int64) ([]Session, error) {
-	rows, err := q.db.Query(ctx, deleteSessionByUserID, userID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Session
-	for rows.Next() {
-		var i Session
-		if err := rows.Scan(
-			&i.ID,
-			&i.UserID,
-			&i.Hash,
-			&i.CreatedAt,
-			&i.ExpiresAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
+func (q *Queries) DeleteSessionsByUserID(ctx context.Context, userID int64) error {
+	_, err := q.db.Exec(ctx, deleteSessionsByUserID, userID)
+	return err
 }
 
 const findSessionByTokenHash = `-- name: FindSessionByTokenHash :one
-SELECT id, user_id, hash, created_at, expires_at FROM sessions WHERE hash = $1
+SELECT id, user_id, token_hash, created_at, expires_at FROM sessions WHERE token_hash = $1 AND expires_at > NOW()
 `
 
-func (q *Queries) FindSessionByTokenHash(ctx context.Context, hash *string) (Session, error) {
-	row := q.db.QueryRow(ctx, findSessionByTokenHash, hash)
+func (q *Queries) FindSessionByTokenHash(ctx context.Context, tokenHash string) (Session, error) {
+	row := q.db.QueryRow(ctx, findSessionByTokenHash, tokenHash)
 	var i Session
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
-		&i.Hash,
+		&i.TokenHash,
 		&i.CreatedAt,
 		&i.ExpiresAt,
 	)

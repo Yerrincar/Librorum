@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { registerUser } from '@/api/auth'
+
+const router = useRouter()
 
 const form = reactive({
   username: '',
@@ -22,6 +25,7 @@ async function submitRegister() {
     const user = await registerUser({ ...form })
     successMessage.value = `Registered ${user.username}`
     form.password = ''
+    await router.push('/')
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'Registration failed'
   } finally {

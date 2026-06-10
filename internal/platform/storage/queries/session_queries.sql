@@ -1,14 +1,14 @@
 -- name: CreateSession :one
-INSERT INTO sessions (user_id, hash) VALUES ($1,$2) RETURNING *;
+INSERT INTO sessions (user_id, token_hash, expires_at) VALUES ($1, $2, $3) RETURNING *;
 
 -- name: FindSessionByTokenHash :one
-SELECT * FROM sessions WHERE hash = $1;
+SELECT * FROM sessions WHERE token_hash = $1 AND expires_at > NOW();
 
--- name: DeleteSessionByTokenHash :one
-DELETE FROM sessions WHERE hash = $1 RETURNING *;
+-- name: DeleteSessionByTokenHash :exec
+DELETE FROM sessions WHERE token_hash = $1;
 
--- name: DeleteExpiredSessions :one
-DELETE FROM sessions WHERE expires_at < NOW() RETURNING *;
+-- name: DeleteExpiredSessions :exec
+DELETE FROM sessions WHERE expires_at < NOW();
 
--- name: DeleteSessionByUserID :many
-DELETE FROM sessions WHERE user_id = $1 RETURNING *;
+-- name: DeleteSessionsByUserID :exec
+DELETE FROM sessions WHERE user_id = $1;
