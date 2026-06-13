@@ -8,21 +8,7 @@ import (
 	"net/http"
 	"strconv"
 	"time"
-
-	"github.com/jackc/pgx/v5/pgxpool"
 )
-
-type Handler struct {
-	Db      *pgxpool.Pool
-	Queries *db.Queries
-	Book    Book
-}
-
-type Book struct {
-	Title     string `json:"Title"`
-	Author    string `json:"Author"`
-	CoverPath string `json:"CoverPath"`
-}
 
 func (h *Handler) DisplayBooks(w http.ResponseWriter, r *http.Request) {
 	appCtx := r.Context()
@@ -30,7 +16,7 @@ func (h *Handler) DisplayBooks(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	limit, offset := ParseLimits(r)
-	rows, err := h.Queries.SelectBooks(setupCtx, db.SelectBooksParams{Limit: limit, Offset: offset})
+	rows, err := h.Queries.SelectBooks(setupCtx, db.SelectBooksParams{UserID: 0, Kind: "", Limit: limit, Offset: offset})
 	if err != nil {
 		http.Error(w, "The user x doesn't have any books added yet", http.StatusInternalServerError)
 	}
@@ -38,9 +24,9 @@ func (h *Handler) DisplayBooks(w http.ResponseWriter, r *http.Request) {
 
 	for _, row := range rows {
 		b := &Book{
-			Title:     row.Title,
-			Author:    row.Author,
-			CoverPath: row.CoverPath,
+			Title:      row.Title,
+			Author:     row.Author,
+			Cover_path: row.CoverPath,
 		}
 		books = append(books, b)
 	}

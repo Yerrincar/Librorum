@@ -22,7 +22,6 @@ CREATE TABLE library_items (
     current_chapter NUMERIC(8,2) CHECK (current_chapter IS NULL OR current_chapter >= 0),
     total_chapters NUMERIC(8,2) CHECK (total_chapters IS NULL OR total_chapters >= 0),
     read_at TIMESTAMPTZ,
-    finished_at TIMESTAMPTZ,
     cover_path TEXT NOT NULL DEFAULT '',
     notes TEXT NOT NULL DEFAULT '',
     search_vector TSVECTOR NOT NULL DEFAULT '',

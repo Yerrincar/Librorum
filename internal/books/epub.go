@@ -1,4 +1,4 @@
-package metadata
+package books
 
 import (
 	"archive/zip"
@@ -8,7 +8,10 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Package struct {
@@ -21,12 +24,15 @@ type Package struct {
 }
 
 type Metadata struct {
-	Author      string   `xml:"http://purl.org/dc/elements/1.1/ creator"`
-	Title       string   `xml:"http://purl.org/dc/elements/1.1/ title"`
-	Description string   `xml:"http://purl.org/dc/elements/1.1/ description"`
-	Genres      []string `xml:"http://purl.org/dc/elements/1.1/ subject"`
-	Language    string   `xml:"http://purl.org/dc/elements/1.1/ language"`
-	Metas       []Meta   `xml:"meta"`
+	Author          string   `xml:"http://purl.org/dc/elements/1.1/ creator"`
+	Title           string   `xml:"http://purl.org/dc/elements/1.1/ title"`
+	Description     string   `xml:"http://purl.org/dc/elements/1.1/ description"`
+	Genres          []string `xml:"http://purl.org/dc/elements/1.1/ subject"`
+	Language        string   `xml:"http://purl.org/dc/elements/1.1/ language"`
+	PublicationDate string   `xml:"http://purl.org/dc/elements/1.1/ date"`
+	PublicationYear *int32   `xml:"-"`
+	TotalChapters   pgtype.Numeric
+	Metas           []Meta `xml:"meta"`
 }
 
 type Meta struct {
@@ -73,6 +79,7 @@ func ExtractEPUB(srcPath string) (*Package, error) {
 		pkg.SourcePath = srcPath
 		pkg.FileName = filepath.Base(srcPath)
 		pkg.Metadata.Genres = NormalizeGenres(pkg.Metadata.Genres)
+		pkg.Metadata.PublicationYear = NormalizePublicationYear(pkg.Metadata.PublicationDate)
 		return pkg, nil
 	}
 
@@ -99,6 +106,21 @@ func NormalizeGenres(genres []string) []string {
 		out = append(out, genre)
 	}
 	return out
+}
+
+func NormalizePublicationYear(date string) *int32 {
+	date = strings.TrimSpace(date)
+	if len(date) < 4 {
+		return nil
+	}
+
+	year, err := strconv.Atoi(date[:4])
+	if err != nil || year < 0 || year > 3000 {
+		return nil
+	}
+
+	out := int32(year)
+	return &out
 }
 
 func extractOPF(r *zip.ReadCloser, f *zip.File) (*Package, error) {

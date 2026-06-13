@@ -7,7 +7,83 @@ package db
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
+
+const insertBook = `-- name: InsertBook :one
+INSERT INTO library_items (user_id, kind, title, author, description, language, publication_year, genres, rating, 
+    ownership_status, reading_status, publication_status, current_chapter, total_chapters,
+    read_at, cover_path, notes) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17) 
+    RETURNING id, user_id, kind, title, author, description, language, publication_year, genres, rating, ownership_status, reading_status, publication_status, current_chapter, total_chapters, read_at, cover_path, notes, search_vector, created_at, updated_at
+`
+
+type InsertBookParams struct {
+	UserID            int64              `json:"user_id"`
+	Kind              string             `json:"kind"`
+	Title             string             `json:"title"`
+	Author            string             `json:"author"`
+	Description       string             `json:"description"`
+	Language          string             `json:"language"`
+	PublicationYear   *int32             `json:"publication_year"`
+	Genres            []string           `json:"genres"`
+	Rating            pgtype.Numeric     `json:"rating"`
+	OwnershipStatus   string             `json:"ownership_status"`
+	ReadingStatus     string             `json:"reading_status"`
+	PublicationStatus string             `json:"publication_status"`
+	CurrentChapter    pgtype.Numeric     `json:"current_chapter"`
+	TotalChapters     pgtype.Numeric     `json:"total_chapters"`
+	ReadAt            pgtype.Timestamptz `json:"read_at"`
+	CoverPath         string             `json:"cover_path"`
+	Notes             string             `json:"notes"`
+}
+
+func (q *Queries) InsertBook(ctx context.Context, arg InsertBookParams) (LibraryItem, error) {
+	row := q.db.QueryRow(ctx, insertBook,
+		arg.UserID,
+		arg.Kind,
+		arg.Title,
+		arg.Author,
+		arg.Description,
+		arg.Language,
+		arg.PublicationYear,
+		arg.Genres,
+		arg.Rating,
+		arg.OwnershipStatus,
+		arg.ReadingStatus,
+		arg.PublicationStatus,
+		arg.CurrentChapter,
+		arg.TotalChapters,
+		arg.ReadAt,
+		arg.CoverPath,
+		arg.Notes,
+	)
+	var i LibraryItem
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Kind,
+		&i.Title,
+		&i.Author,
+		&i.Description,
+		&i.Language,
+		&i.PublicationYear,
+		&i.Genres,
+		&i.Rating,
+		&i.OwnershipStatus,
+		&i.ReadingStatus,
+		&i.PublicationStatus,
+		&i.CurrentChapter,
+		&i.TotalChapters,
+		&i.ReadAt,
+		&i.CoverPath,
+		&i.Notes,
+		&i.SearchVector,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
 
 const insertUser = `-- name: InsertUser :one
 INSERT INTO users (username, email, password_hash, display_name) VALUES ($1,$2,$3,$4) RETURNING id, email, username, password_hash, display_name, created_at, updated_at
@@ -41,16 +117,23 @@ func (q *Queries) InsertUser(ctx context.Context, arg InsertUserParams) (User, e
 }
 
 const selectBooks = `-- name: SelectBooks :many
-SELECT id, user_id, kind, title, author, description, language, publication_year, genres, rating, ownership_status, reading_status, publication_status, current_chapter, total_chapters, read_at, finished_at, cover_path, notes, search_vector, created_at, updated_at FROM library_items ORDER BY created_at LIMIT $1 OFFSET $2
+SELECT id, user_id, kind, title, author, description, language, publication_year, genres, rating, ownership_status, reading_status, publication_status, current_chapter, total_chapters, read_at, cover_path, notes, search_vector, created_at, updated_at FROM library_items WHERE user_id = $1 AND kind = $2 ORDER BY created_at LIMIT $3 OFFSET $4
 `
 
 type SelectBooksParams struct {
-	Limit  int32 `json:"limit"`
-	Offset int32 `json:"offset"`
+	UserID int64  `json:"user_id"`
+	Kind   string `json:"kind"`
+	Limit  int32  `json:"limit"`
+	Offset int32  `json:"offset"`
 }
 
 func (q *Queries) SelectBooks(ctx context.Context, arg SelectBooksParams) ([]LibraryItem, error) {
-	rows, err := q.db.Query(ctx, selectBooks, arg.Limit, arg.Offset)
+	rows, err := q.db.Query(ctx, selectBooks,
+		arg.UserID,
+		arg.Kind,
+		arg.Limit,
+		arg.Offset,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +158,6 @@ func (q *Queries) SelectBooks(ctx context.Context, arg SelectBooksParams) ([]Lib
 			&i.CurrentChapter,
 			&i.TotalChapters,
 			&i.ReadAt,
-			&i.FinishedAt,
 			&i.CoverPath,
 			&i.Notes,
 			&i.SearchVector,

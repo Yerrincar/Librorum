@@ -1,4 +1,4 @@
-package kindle
+package books
 
 import (
 	"bufio"

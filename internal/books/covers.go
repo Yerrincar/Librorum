@@ -1,4 +1,4 @@
-package covers
+package books
 
 import (
 	"archive/zip"
@@ -16,14 +16,13 @@ import (
 	"strings"
 	"time"
 
-	"Librorum/internal/metadata"
 	"Librorum/internal/storage"
 )
 
 type Manager struct {
 	CacheDir    string
 	HTTPClient  *http.Client
-	OpenLibrary metadata.OpenLibraryClient
+	OpenLibrary OpenLibraryClient
 }
 
 func NewManager(cacheDir, openLibraryContact string) *Manager {
@@ -31,14 +30,14 @@ func NewManager(cacheDir, openLibraryContact string) *Manager {
 	return &Manager{
 		CacheDir:   cacheDir,
 		HTTPClient: client,
-		OpenLibrary: metadata.OpenLibraryClient{
+		OpenLibrary: OpenLibraryClient{
 			HTTPClient: client,
 			Contact:    openLibraryContact,
 		},
 	}
 }
 
-func (m *Manager) Process(ctx context.Context, pkg *metadata.Package) (string, error) {
+func (m *Manager) Process(ctx context.Context, pkg *Package) (string, error) {
 	if pkg == nil {
 		return "", fmt.Errorf("metadata package is nil")
 	}
@@ -83,7 +82,7 @@ func (m *Manager) Process(ctx context.Context, pkg *metadata.Package) (string, e
 	return m.downloadOpenLibraryCover(ctx, coverID, fallbackPath)
 }
 
-func GoodQualityCover(pkg *metadata.Package) string {
+func GoodQualityCover(pkg *Package) string {
 	const dimensionCap = 2.0 / 3.0
 	const minUniqueColors = 5
 
@@ -179,7 +178,7 @@ func scoreCoverCandidate(candidate *zip.File, internalCoverPath string, dimensio
 	return score
 }
 
-func (m *Manager) extractFromEPUB(pkg *metadata.Package, internalPath string) (string, error) {
+func (m *Manager) extractFromEPUB(pkg *Package, internalPath string) (string, error) {
 	z, err := zip.OpenReader(pkg.SourcePath)
 	if err != nil {
 		return "", err
@@ -247,7 +246,7 @@ func (m *Manager) downloadOpenLibraryCover(ctx context.Context, coverID int, dst
 	return dstPath, out.Sync()
 }
 
-func (m *Manager) cachePath(pkg *metadata.Package, ext string) string {
+func (m *Manager) cachePath(pkg *Package, ext string) string {
 	if ext == "" {
 		ext = ".jpg"
 	}

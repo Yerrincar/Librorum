@@ -39,7 +39,6 @@ type LibraryItem struct {
 	CurrentChapter    pgtype.Numeric     `json:"current_chapter"`
 	TotalChapters     pgtype.Numeric     `json:"total_chapters"`
 	ReadAt            pgtype.Timestamptz `json:"read_at"`
-	FinishedAt        pgtype.Timestamptz `json:"finished_at"`
 	CoverPath         string             `json:"cover_path"`
 	Notes             string             `json:"notes"`
 	SearchVector      interface{}        `json:"search_vector"`
