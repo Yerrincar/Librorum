@@ -72,7 +72,7 @@ export async function loginUser(payload: LoginRequest): Promise<UserResponse> {
 
 export async function getCurrentUser(): Promise<UserResponse> {
   const response = await fetch('/users/currentUser', {
-    method: 'POST',
+    method: 'GET',
     credentials: 'include',
   })
 

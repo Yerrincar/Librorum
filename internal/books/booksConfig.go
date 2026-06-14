@@ -2,6 +2,7 @@ package books
 
 import (
 	db "Librorum/internal/platform/storage/sqlc"
+	"Librorum/internal/storage"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -13,6 +14,7 @@ type Handler struct {
 	Book    Book
 	Logger  Logger
 	Manager *Manager
+	Paths   storage.Paths
 }
 
 type Book struct {

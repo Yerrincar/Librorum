@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"time"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -16,71 +16,122 @@ import (
 func (h *Handler) InsertEpubBooks(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	userId, err := h.SessionId(ctx, w, r)
+	userId, status, err := h.SessionId(ctx, r)
 	if err != nil {
-		http.Error(w, "Error trying to extract userID from the sessio", http.StatusBadRequest)
+		http.Error(w, http.StatusText(status), status)
 		return
 	}
 
-	epubMetadata, err := ExtractEPUB("")
+	err = r.ParseMultipartForm(20 << 20)
+	if err != nil {
+		http.Error(w, "Error parsing multipart form", http.StatusBadRequest)
+		return
+	}
+	kind := r.FormValue("kind")
+	if kind == "" {
+		kind = "book"
+	}
+	ratingForm := strings.TrimSpace(r.FormValue("rating"))
+
+	var rating pgtype.Numeric
+	if ratingForm == "" {
+		rating = pgtype.Numeric{Valid: false}
+	} else if err := rating.Scan(ratingForm); err != nil {
+		http.Error(w, "invalid rating", http.StatusBadRequest)
+		return
+	}
+	ownership_status := r.FormValue("ownership_status")
+	if ownership_status == "" {
+		ownership_status = "none"
+	}
+	reading_status := r.FormValue("reading_status")
+	if reading_status == "" {
+		reading_status = "unread"
+	}
+	publication_status := r.FormValue("publication_status")
+	if publication_status == "" {
+		publication_status = "unknown"
+	}
+
+	current_chapter := r.FormValue("current_chapter")
+	var currentChapter pgtype.Numeric
+	if current_chapter == "" {
+		currentChapter = pgtype.Numeric{Valid: false}
+	} else if err := currentChapter.Scan(current_chapter); err != nil {
+		http.Error(w, "invalid current chapter", http.StatusBadRequest)
+		return
+	}
+	read_at := r.FormValue("read_at")
+	var readAt pgtype.Timestamptz
+	if read_at == "" {
+		readAt = pgtype.Timestamptz{Valid: false}
+	} else if err := readAt.Scan(read_at); err != nil {
+		http.Error(w, "invalid read at value", http.StatusBadRequest)
+		return
+	}
+
+	notes := r.FormValue("notes")
+
+	epubPath, err := h.FileUploader(r)
+	if err != nil {
+		http.Error(w, "Error trying to upload .epub file", http.StatusBadRequest)
+		return
+	}
+
+	epubMetadata, err := ExtractEPUB(epubPath)
 	if err != nil {
 		http.Error(w, "Error trying to extract metadata from .epub file", http.StatusBadRequest)
 		return
 	}
+
 	coverPath, err := h.Manager.Process(ctx, epubMetadata)
-
-	var input struct {
-		Kind             string         `json:"Kind"`
-		Rating           pgtype.Numeric `json:"Rating"`
-		Ownership_status string         `json:"Ownership_status"`
-		Reading_status   string         `json:"Reading_status"`
-		Current_chapter  pgtype.Numeric `json:"Current_chapter"`
-		Read_at          time.Time      `json:"Read_at"`
-		Notes            string         `json:"Notes"`
+	if err != nil {
+		h.Logger.Error("Error trying to get cover path", nil)
 	}
 
-	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
-		http.Error(w, "Invalid JSON", http.StatusBadRequest)
-		return
-	}
-	_, err = h.Queries.InsertBook(ctx, db.InsertBookParams{
-		UserID:          userId,
-		Title:           epubMetadata.Metadata.Title,
-		Author:          epubMetadata.Metadata.Author,
-		Description:     epubMetadata.Metadata.Description,
-		Genres:          epubMetadata.Metadata.Genres,
-		Language:        epubMetadata.Metadata.Language,
-		PublicationYear: epubMetadata.Metadata.PublicationYear,
-		TotalChapters:   epubMetadata.Metadata.TotalChapters,
-		CoverPath:       coverPath,
-		Kind:            input.Kind,
-		Rating:          input.Rating,
-		OwnershipStatus: input.Ownership_status,
-		ReadingStatus:   input.Reading_status,
-		CurrentChapter:  input.Current_chapter,
-		Notes:           input.Notes,
+	response, err := h.Queries.InsertBook(ctx, db.InsertBookParams{
+		UserID:            userId,
+		Title:             epubMetadata.Metadata.Title,
+		Author:            epubMetadata.Metadata.Author,
+		Description:       epubMetadata.Metadata.Description,
+		Genres:            epubMetadata.Metadata.Genres,
+		Language:          epubMetadata.Metadata.Language,
+		PublicationYear:   epubMetadata.Metadata.PublicationYear,
+		TotalChapters:     epubMetadata.Metadata.TotalChapters,
+		PublicationStatus: publication_status,
+		CoverPath:         coverPath,
+		Kind:              kind,
+		Rating:            rating,
+		OwnershipStatus:   ownership_status,
+		ReadingStatus:     reading_status,
+		CurrentChapter:    currentChapter,
+		ReadAt:            readAt,
+		Notes:             notes,
 	})
 	if err != nil {
 		h.Logger.Error("Error trying to insert book in the database: "+err.Error(), nil)
+		http.Error(w, "Error trying to insert book in the database", http.StatusBadRequest)
+		return
 	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusAccepted)
+	json.NewEncoder(w).Encode(response)
 }
 
-func (h *Handler) SessionId(ctx context.Context, w http.ResponseWriter, r *http.Request) (int64, error) {
+func (h *Handler) SessionId(ctx context.Context, r *http.Request) (int64, int, error) {
 	sessionToken, err := users.SessionTokenFromRequest(r)
 	if err != nil {
-		http.Error(w, "Unauthorized status", http.StatusUnauthorized)
-		return 0, err
+		return 0, http.StatusUnauthorized, err
 	}
 	session, err := h.Queries.FindSessionByTokenHash(ctx, users.HashSessionToken(sessionToken))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			http.Error(w, "Unauthorized status", http.StatusUnauthorized)
-			return 0, err
+			return 0, http.StatusUnauthorized, err
 		}
 		h.Logger.Error("Error trying to find session: "+err.Error(), nil)
-		http.Error(w, "There was a problem and we couldn't fulfill your request", http.StatusInternalServerError)
-		return 0, err
+		return 0, http.StatusInternalServerError, err
 	}
 
-	return session.UserID, nil
+	return session.UserID, http.StatusOK, nil
 }

@@ -78,11 +78,12 @@ func (a *App) routes() http.Handler {
 	//GET
 	mux.HandleFunc("GET /healthz", a.handleHealth)
 	mux.HandleFunc("GET /users/currentUser", a.UserHandler.CurrentUser)
+	mux.HandleFunc("GET /books/library-items", a.BookHandler.DisplayBooks)
 	//POST
-	mux.HandleFunc("GET /api/example/library-items", a.BookHandler.DisplayBooks)
 	mux.HandleFunc("POST /users/register", a.UserHandler.Register)
 	mux.HandleFunc("POST /users/login", a.UserHandler.LoginUser)
 	mux.HandleFunc("POST /users/logout", a.UserHandler.Logout)
+	mux.HandleFunc("POST /books/insert", a.BookHandler.InsertEpubBooks)
 	return logRequests(mux)
 }
 
