@@ -79,6 +79,7 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("GET /healthz", a.handleHealth)
 	mux.HandleFunc("GET /users/currentUser", a.UserHandler.CurrentUser)
 	mux.HandleFunc("GET /books/library-items", a.BookHandler.DisplayBooks)
+	mux.Handle("GET /covers/", http.StripPrefix("/covers/", http.FileServer(http.Dir(a.BookHandler.Paths.CoverCacheDir))))
 	//POST
 	mux.HandleFunc("POST /users/register", a.UserHandler.Register)
 	mux.HandleFunc("POST /users/login", a.UserHandler.LoginUser)

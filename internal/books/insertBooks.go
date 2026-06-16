@@ -8,6 +8,7 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -61,13 +62,21 @@ func (h *Handler) InsertEpubBooks(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid current chapter", http.StatusBadRequest)
 		return
 	}
-	read_at := r.FormValue("read_at")
+	read_at := strings.TrimSpace(r.FormValue("read_at"))
 	var readAt pgtype.Timestamptz
 	if read_at == "" {
 		readAt = pgtype.Timestamptz{Valid: false}
-	} else if err := readAt.Scan(read_at); err != nil {
-		http.Error(w, "invalid read at value", http.StatusBadRequest)
-		return
+	} else {
+		parsed, err := time.Parse(time.RFC3339, read_at)
+		if err != nil {
+			parsed, err = time.ParseInLocation("2006-01-02T15:04", read_at, time.Local)
+		}
+		if err != nil {
+			h.Logger.Error("Invalid read_at value: "+err.Error(), map[string]string{"read_at": read_at})
+			http.Error(w, "invalid read at value", http.StatusBadRequest)
+			return
+		}
+		readAt = pgtype.Timestamptz{Time: parsed, Valid: true}
 	}
 
 	notes := r.FormValue("notes")

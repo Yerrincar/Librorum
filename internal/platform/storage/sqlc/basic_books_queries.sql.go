@@ -116,19 +116,71 @@ func (q *Queries) InsertUser(ctx context.Context, arg InsertUserParams) (User, e
 	return i, err
 }
 
-const selectBooks = `-- name: SelectBooks :many
+const selectBooksByUser = `-- name: SelectBooksByUser :many
+SELECT id, user_id, kind, title, author, description, language, publication_year, genres, rating, ownership_status, reading_status, publication_status, current_chapter, total_chapters, read_at, cover_path, notes, search_vector, created_at, updated_at FROM library_items WHERE user_id = $1 ORDER BY created_at LIMIT $2 OFFSET $3
+`
+
+type SelectBooksByUserParams struct {
+	UserID int64 `json:"user_id"`
+	Limit  int32 `json:"limit"`
+	Offset int32 `json:"offset"`
+}
+
+func (q *Queries) SelectBooksByUser(ctx context.Context, arg SelectBooksByUserParams) ([]LibraryItem, error) {
+	rows, err := q.db.Query(ctx, selectBooksByUser, arg.UserID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []LibraryItem
+	for rows.Next() {
+		var i LibraryItem
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Kind,
+			&i.Title,
+			&i.Author,
+			&i.Description,
+			&i.Language,
+			&i.PublicationYear,
+			&i.Genres,
+			&i.Rating,
+			&i.OwnershipStatus,
+			&i.ReadingStatus,
+			&i.PublicationStatus,
+			&i.CurrentChapter,
+			&i.TotalChapters,
+			&i.ReadAt,
+			&i.CoverPath,
+			&i.Notes,
+			&i.SearchVector,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const selectBooksByUserAndKind = `-- name: SelectBooksByUserAndKind :many
 SELECT id, user_id, kind, title, author, description, language, publication_year, genres, rating, ownership_status, reading_status, publication_status, current_chapter, total_chapters, read_at, cover_path, notes, search_vector, created_at, updated_at FROM library_items WHERE user_id = $1 AND kind = $2 ORDER BY created_at LIMIT $3 OFFSET $4
 `
 
-type SelectBooksParams struct {
+type SelectBooksByUserAndKindParams struct {
 	UserID int64  `json:"user_id"`
 	Kind   string `json:"kind"`
 	Limit  int32  `json:"limit"`
 	Offset int32  `json:"offset"`
 }
 
-func (q *Queries) SelectBooks(ctx context.Context, arg SelectBooksParams) ([]LibraryItem, error) {
-	rows, err := q.db.Query(ctx, selectBooks,
+func (q *Queries) SelectBooksByUserAndKind(ctx context.Context, arg SelectBooksByUserAndKindParams) ([]LibraryItem, error) {
+	rows, err := q.db.Query(ctx, selectBooksByUserAndKind,
 		arg.UserID,
 		arg.Kind,
 		arg.Limit,

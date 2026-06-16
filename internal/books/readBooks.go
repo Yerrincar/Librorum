@@ -2,23 +2,35 @@ package books
 
 import (
 	db "Librorum/internal/platform/storage/sqlc"
-	"context"
 	"encoding/json"
 	"log"
 	"net/http"
 	"strconv"
-	"time"
 )
 
 func (h *Handler) DisplayBooks(w http.ResponseWriter, r *http.Request) {
-	appCtx := r.Context()
-	setupCtx, cancel := context.WithTimeout(appCtx, 10*time.Second)
-	defer cancel()
+	ctx := r.Context()
+	userId, status, err := h.SessionId(ctx, r)
+	if err != nil {
+		http.Error(w, http.StatusText(status), status)
+		return
+	}
+
+	kind := r.URL.Query().Get("kind")
 
 	limit, offset := ParseLimits(r)
-	rows, err := h.Queries.SelectBooks(setupCtx, db.SelectBooksParams{UserID: 0, Kind: "", Limit: limit, Offset: offset})
-	if err != nil {
-		http.Error(w, "The user x doesn't have any books added yet", http.StatusInternalServerError)
+	var rows []db.LibraryItem
+	if kind == "" {
+		rows, err = h.Queries.SelectBooksByUser(ctx, db.SelectBooksByUserParams{UserID: userId, Limit: limit, Offset: offset})
+		if err != nil {
+			http.Error(w, "Error trying to select books by user", http.StatusInternalServerError)
+		}
+	} else {
+		rows, err = h.Queries.SelectBooksByUserAndKind(ctx, db.SelectBooksByUserAndKindParams{UserID: userId, Kind: kind, Limit: limit, Offset: offset})
+		if err != nil {
+			http.Error(w, "Error trying to select books by user and kind", http.StatusInternalServerError)
+		}
+
 	}
 	books := make([]*Book, 0)
 
