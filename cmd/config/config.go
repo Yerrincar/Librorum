@@ -11,10 +11,11 @@ import (
 )
 
 type Config struct {
-	Addr      string
-	DataDir   string
-	OLContact string
-	DB        struct {
+	Addr              string
+	DataDir           string
+	OLContact         string
+	GoogleBooksAPIKey string
+	DB                struct {
 		dsn            string
 		maxConnections int
 		maxIdleTime    int
@@ -55,6 +56,7 @@ func LoadConfig(l *Logger) (*Config, error) {
 	flag.StringVar(&cfg.DataDir, "data-dir", os.Getenv("LIBRORUM_DATA_DIR"), "Data directory")
 	flag.StringVar(&cfg.Addr, "addr", os.Getenv("LIBRORUM_ADDR"), "Address")
 	flag.StringVar(&cfg.OLContact, "ol-contact", os.Getenv("LIBRORUM_OPENLIBRARY_CONTACT"), "Open Library API contact")
+	flag.StringVar(&cfg.GoogleBooksAPIKey, "google-books-api-key", os.Getenv("GOOGLE_BOOKS_API_KEY"), "Google Books API key")
 
 	flag.StringVar(&cfg.Secret.HMC, "secret-key", os.Getenv("HMC_SECRET_KEY"), "HMC Secret Key")
 	secretKey, err := hex.DecodeString(cfg.Secret.HMC)

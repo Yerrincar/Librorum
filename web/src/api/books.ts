@@ -10,6 +10,10 @@ export type ImportBookRequest = {
   notes: string
 }
 
+export type ImportMetadataBookRequest = Omit<ImportBookRequest, 'file'> & {
+  metadata: BookMetadataCandidateResponse
+}
+
 export type LibraryItemResponse = {
   id?: number
   title?: string
@@ -24,14 +28,102 @@ export type LibraryItemResponse = {
 
 export type LibraryItemKind = 'book' | 'manga' | 'manhwa'
 
+export type MetadataSource = 'openlibrary' | 'google_books'
+
+export type BookMetadataCandidateResponse = {
+  source: MetadataSource
+  source_id: string
+  title: string
+  author: string
+  description: string
+  genres: string[] | null
+  language: string
+  publication_year: number | null
+  cover_id: number
+  cover_url: string
+  work_key: string
+}
+
 type ApiErrorResponse = {
   error?: string
   message?: string
 }
 
 export async function importEpubBook(payload: ImportBookRequest): Promise<LibraryItemResponse> {
-  const form = new FormData()
+  const form = bookFormData(payload)
   form.append('file', payload.file)
+
+  const response = await fetch('/books/import/epub', {
+    method: 'POST',
+    credentials: 'include',
+    body: form,
+  })
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, 'Book import failed'))
+  }
+
+  return response.json()
+}
+
+export async function importMetadataBook(
+  payload: ImportMetadataBookRequest,
+): Promise<LibraryItemResponse> {
+  const form = bookFormData(payload)
+  form.append('selected_source', payload.metadata.source)
+  form.append('selected_source_id', payload.metadata.source_id)
+  form.append('selected_title', payload.metadata.title)
+  form.append('selected_author', payload.metadata.author)
+  form.append('selected_description', payload.metadata.description)
+  form.append('selected_language', payload.metadata.language)
+  form.append('selected_work_key', payload.metadata.work_key)
+  form.append('selected_cover_id', String(payload.metadata.cover_id))
+  form.append('selected_cover_url', payload.metadata.cover_url)
+  if (payload.metadata.publication_year !== null) {
+    form.append('selected_publication_year', String(payload.metadata.publication_year))
+  }
+  for (const genre of payload.metadata.genres ?? []) {
+    form.append('selected_genres', genre)
+  }
+
+  const response = await fetch('/books/import/openlibrary', {
+    method: 'POST',
+    credentials: 'include',
+    body: form,
+  })
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, 'Metadata import failed'))
+  }
+
+  return response.json()
+}
+
+export async function searchBookMetadata(
+  title: string,
+  author: string,
+): Promise<BookMetadataCandidateResponse[]> {
+  const form = new FormData()
+  form.append('title', title.trim())
+  if (author.trim() !== '') {
+    form.append('author', author.trim())
+  }
+
+  const response = await fetch('/books/openlibrary/search', {
+    method: 'POST',
+    credentials: 'include',
+    body: form,
+  })
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, 'Metadata search failed'))
+  }
+
+  return response.json()
+}
+
+function bookFormData(payload: Omit<ImportBookRequest, 'file'>): FormData {
+  const form = new FormData()
   form.append('kind', payload.kind)
   form.append('ownership_status', payload.ownership_status)
   form.append('reading_status', payload.reading_status)
@@ -54,17 +146,7 @@ export async function importEpubBook(payload: ImportBookRequest): Promise<Librar
     form.append('notes', notes)
   }
 
-  const response = await fetch('/books/insert', {
-    method: 'POST',
-    credentials: 'include',
-    body: form,
-  })
-
-  if (!response.ok) {
-    throw new Error(await readErrorMessage(response, 'Book import failed'))
-  }
-
-  return response.json()
+  return form
 }
 
 export async function fetchBooks(kind?: LibraryItemKind): Promise<LibraryItemResponse[]> {

@@ -31,17 +31,6 @@ type openLibraryBookDoc struct {
 	EditionKeys      []string `json:"edition_key"`
 }
 
-type OpenLibraryBookMetadata struct {
-	Title           string
-	Author          string
-	Description     string
-	Genres          []string
-	Language        string
-	PublicationYear *int32
-	CoverID         int
-	WorkKey         string
-}
-
 type openLibraryWorkResponse struct {
 	Description json.RawMessage `json:"description"`
 }
@@ -100,7 +89,20 @@ func (c OpenLibraryClient) SearchCoverID(ctx context.Context, title, author stri
 	return 0, nil
 }
 
-func (c OpenLibraryClient) SearchBookMetadata(ctx context.Context, title, author string) (*OpenLibraryBookMetadata, error) {
+func (c OpenLibraryClient) SearchBookMetadata(ctx context.Context, title, author string) (*BookMetadataCandidate, error) {
+	candidates, err := c.SearchBookMetadataCandidates(ctx, title, author)
+	if err != nil || len(candidates) == 0 {
+		return nil, err
+	}
+
+	metadata := candidates[0]
+	if description, err := c.WorkDescription(ctx, metadata.WorkKey); err == nil {
+		metadata.Description = description
+	}
+	return &metadata, nil
+}
+
+func (c OpenLibraryClient) SearchBookMetadataCandidates(ctx context.Context, title, author string) ([]BookMetadataCandidate, error) {
 	if strings.TrimSpace(title) == "" {
 		return nil, nil
 	}
@@ -145,14 +147,17 @@ func (c OpenLibraryClient) SearchBookMetadata(ctx context.Context, title, author
 		return nil, nil
 	}
 
+	candidates := make([]BookMetadataCandidate, 0, len(payload.Docs))
 	for _, doc := range payload.Docs {
 		if strings.TrimSpace(doc.Title) == "" {
 			continue
 		}
 
-		metadata := &OpenLibraryBookMetadata{
+		metadata := BookMetadataCandidate{
+			Source:   MetadataSourceOpenLibrary,
+			SourceID: doc.Key,
 			Title:    doc.Title,
-			Genres:   NormalizeGenres(limitStrings(doc.Subjects, 10)),
+			Genres:   nonNilStrings(NormalizeGenres(limitStrings(doc.Subjects, 10))),
 			Language: firstString(doc.Languages),
 			CoverID:  doc.CoverID,
 			WorkKey:  doc.Key,
@@ -164,12 +169,9 @@ func (c OpenLibraryClient) SearchBookMetadata(ctx context.Context, title, author
 			year := doc.FirstPublishYear
 			metadata.PublicationYear = &year
 		}
-		if description, err := c.WorkDescription(ctx, metadata.WorkKey); err == nil {
-			metadata.Description = description
-		}
-		return metadata, nil
+		candidates = append(candidates, metadata)
 	}
-	return nil, nil
+	return candidates, nil
 }
 
 func (c OpenLibraryClient) WorkDescription(ctx context.Context, workKey string) (string, error) {
@@ -249,6 +251,13 @@ func limitStrings(values []string, limit int) []string {
 		return values
 	}
 	return values[:limit]
+}
+
+func nonNilStrings(values []string) []string {
+	if values == nil {
+		return []string{}
+	}
+	return values
 }
 
 func (c OpenLibraryClient) UserAgent() string {

@@ -2,17 +2,32 @@ package books
 
 import (
 	db "Librorum/internal/platform/storage/sqlc"
+	"Librorum/internal/storage"
 	"Librorum/internal/users"
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
+
+type form struct {
+	PublicationStatus string
+	Kind              string
+	Rating            pgtype.Numeric
+	OwnershipStatus   string
+	ReadingStatus     string
+	CurrentChapter    pgtype.Numeric
+	ReadAt            pgtype.Timestamptz
+	Notes             string
+}
 
 func (h *Handler) InsertEpubBooks(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -28,58 +43,11 @@ func (h *Handler) InsertEpubBooks(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error parsing multipart form", http.StatusBadRequest)
 		return
 	}
-	kind := r.FormValue("kind")
-	if kind == "" {
-		kind = "book"
-	}
-	ratingForm := strings.TrimSpace(r.FormValue("rating"))
-
-	var rating pgtype.Numeric
-	if ratingForm == "" {
-		rating = pgtype.Numeric{Valid: false}
-	} else if err := rating.Scan(ratingForm); err != nil {
-		http.Error(w, "invalid rating", http.StatusBadRequest)
+	formInput, err := h.formMetadata(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	ownership_status := r.FormValue("ownership_status")
-	if ownership_status == "" {
-		ownership_status = "none"
-	}
-	reading_status := r.FormValue("reading_status")
-	if reading_status == "" {
-		reading_status = "unread"
-	}
-	publication_status := r.FormValue("publication_status")
-	if publication_status == "" {
-		publication_status = "unknown"
-	}
-
-	current_chapter := r.FormValue("current_chapter")
-	var currentChapter pgtype.Numeric
-	if current_chapter == "" {
-		currentChapter = pgtype.Numeric{Valid: false}
-	} else if err := currentChapter.Scan(current_chapter); err != nil {
-		http.Error(w, "invalid current chapter", http.StatusBadRequest)
-		return
-	}
-	read_at := strings.TrimSpace(r.FormValue("read_at"))
-	var readAt pgtype.Timestamptz
-	if read_at == "" {
-		readAt = pgtype.Timestamptz{Valid: false}
-	} else {
-		parsed, err := time.Parse(time.RFC3339, read_at)
-		if err != nil {
-			parsed, err = time.ParseInLocation("2006-01-02T15:04", read_at, time.Local)
-		}
-		if err != nil {
-			h.Logger.Error("Invalid read_at value: "+err.Error(), map[string]string{"read_at": read_at})
-			http.Error(w, "invalid read at value", http.StatusBadRequest)
-			return
-		}
-		readAt = pgtype.Timestamptz{Time: parsed, Valid: true}
-	}
-
-	notes := r.FormValue("notes")
 
 	epubPath, err := h.FileUploader(r)
 	if err != nil {
@@ -107,15 +75,15 @@ func (h *Handler) InsertEpubBooks(w http.ResponseWriter, r *http.Request) {
 		Language:          epubMetadata.Metadata.Language,
 		PublicationYear:   epubMetadata.Metadata.PublicationYear,
 		TotalChapters:     epubMetadata.Metadata.TotalChapters,
-		PublicationStatus: publication_status,
+		PublicationStatus: formInput.PublicationStatus,
 		CoverPath:         coverPath,
-		Kind:              kind,
-		Rating:            rating,
-		OwnershipStatus:   ownership_status,
-		ReadingStatus:     reading_status,
-		CurrentChapter:    currentChapter,
-		ReadAt:            readAt,
-		Notes:             notes,
+		Kind:              formInput.Kind,
+		Rating:            formInput.Rating,
+		OwnershipStatus:   formInput.OwnershipStatus,
+		ReadingStatus:     formInput.ReadingStatus,
+		CurrentChapter:    formInput.CurrentChapter,
+		ReadAt:            formInput.ReadAt,
+		Notes:             formInput.Notes,
 	})
 	if err != nil {
 		h.Logger.Error("Error trying to insert book in the database: "+err.Error(), nil)
@@ -126,6 +94,258 @@ func (h *Handler) InsertEpubBooks(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusAccepted)
 	json.NewEncoder(w).Encode(response)
+}
+
+func (h *Handler) InsertOpenLibraryBooks(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	userId, status, err := h.SessionId(ctx, r)
+	if err != nil {
+		http.Error(w, http.StatusText(status), status)
+		return
+	}
+
+	if err := r.ParseMultipartForm(20 << 20); err != nil {
+		http.Error(w, "Error parsing multipart form", http.StatusBadRequest)
+		return
+	}
+
+	formInput, err := h.formMetadata(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	metadata, err := h.formSelectedMetadata(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if metadata.Source == MetadataSourceOpenLibrary && metadata.Description == "" && metadata.WorkKey != "" {
+		if description, err := h.Manager.OpenLibrary.WorkDescription(ctx, metadata.WorkKey); err == nil {
+			metadata.Description = description
+		}
+	}
+
+	coverPath := ""
+	switch metadata.Source {
+	case MetadataSourceOpenLibrary:
+		if metadata.CoverID > 0 {
+			coverPath = filepath.Join(h.Manager.CacheDir, fmt.Sprintf("%s_%d.jpg", storage.SanitizeFileName(metadata.Title), metadata.CoverID))
+			if cachedPath, err := h.Manager.downloadOpenLibraryCover(ctx, metadata.CoverID, coverPath); err == nil {
+				coverPath = cachedPath
+			} else {
+				h.Logger.Error("Error trying to fetch OpenLibrary cover: "+err.Error(), nil)
+				coverPath = ""
+			}
+		}
+	case MetadataSourceGoogleBooks:
+		if metadata.CoverURL != "" {
+			coverPath = h.Manager.externalCoverPath(metadata.Title, metadata.Source, metadata.SourceID, metadata.CoverURL)
+			if cachedPath, err := h.Manager.downloadCoverURL(ctx, metadata.CoverURL, coverPath, "Librorum/0.1"); err == nil {
+				coverPath = cachedPath
+			} else {
+				h.Logger.Error("Error trying to fetch Google Books cover: "+err.Error(), nil)
+				coverPath = ""
+			}
+		}
+	}
+
+	response, err := h.Queries.InsertBook(ctx, db.InsertBookParams{
+		UserID:            userId,
+		Title:             metadata.Title,
+		Author:            metadata.Author,
+		Description:       metadata.Description,
+		Genres:            nonNilStrings(metadata.Genres),
+		Language:          metadata.Language,
+		PublicationYear:   metadata.PublicationYear,
+		PublicationStatus: formInput.PublicationStatus,
+		CoverPath:         coverPath,
+		Kind:              formInput.Kind,
+		Rating:            formInput.Rating,
+		OwnershipStatus:   formInput.OwnershipStatus,
+		ReadingStatus:     formInput.ReadingStatus,
+		CurrentChapter:    formInput.CurrentChapter,
+		ReadAt:            formInput.ReadAt,
+		Notes:             formInput.Notes,
+	})
+	if err != nil {
+		h.Logger.Error("Error trying to insert book in the database: "+err.Error(), nil)
+		http.Error(w, "Error trying to insert book in the database", http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusAccepted)
+	json.NewEncoder(w).Encode(response)
+}
+
+func (h *Handler) SearchOpenLibraryBooks(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	_, status, err := h.SessionId(ctx, r)
+	if err != nil {
+		http.Error(w, http.StatusText(status), status)
+		return
+	}
+
+	if err := r.ParseMultipartForm(20 << 20); err != nil {
+		http.Error(w, "Error parsing multipart form", http.StatusBadRequest)
+		return
+	}
+
+	title, author, err := h.formOpenLibrarySearch(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	metadata := make([]BookMetadataCandidate, 0, 10)
+	openLibraryMetadata, openLibraryErr := h.Manager.OpenLibrary.SearchBookMetadataCandidates(ctx, title, author)
+	if openLibraryErr != nil {
+		h.Logger.Error("Error trying to fetch OpenLibrary metadata: "+openLibraryErr.Error(), nil)
+	} else {
+		metadata = append(metadata, openLibraryMetadata...)
+	}
+
+	googleBooksMetadata, googleBooksErr := h.Manager.GoogleBooks.SearchBookMetadataCandidates(ctx, title, author)
+	if googleBooksErr != nil {
+		h.Logger.Error("Error trying to fetch Google Books metadata: "+googleBooksErr.Error(), nil)
+	} else {
+		metadata = append(metadata, googleBooksMetadata...)
+	}
+
+	if len(metadata) == 0 {
+		if openLibraryErr != nil || googleBooksErr != nil {
+			http.Error(w, "Error trying to fetch metadata", http.StatusBadGateway)
+			return
+		}
+		http.Error(w, "No metadata found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(metadata)
+}
+
+func (h *Handler) formMetadata(r *http.Request) (*form, error) {
+	kind := r.FormValue("kind")
+	if kind == "" {
+		kind = "book"
+	}
+	ratingForm := strings.TrimSpace(r.FormValue("rating"))
+
+	var rating pgtype.Numeric
+	if ratingForm == "" {
+		rating = pgtype.Numeric{Valid: false}
+	} else if err := rating.Scan(ratingForm); err != nil {
+		return nil, errors.New("invalid rating")
+	}
+	ownership_status := r.FormValue("ownership_status")
+	if ownership_status == "" {
+		ownership_status = "none"
+	}
+	reading_status := r.FormValue("reading_status")
+	if reading_status == "" {
+		reading_status = "unread"
+	}
+	publication_status := r.FormValue("publication_status")
+	if publication_status == "" {
+		publication_status = "unknown"
+	}
+
+	current_chapter := r.FormValue("current_chapter")
+	var currentChapter pgtype.Numeric
+	if current_chapter == "" {
+		currentChapter = pgtype.Numeric{Valid: false}
+	} else if err := currentChapter.Scan(current_chapter); err != nil {
+		return nil, errors.New("invalid current chapter")
+	}
+	read_at := strings.TrimSpace(r.FormValue("read_at"))
+	var readAt pgtype.Timestamptz
+	if read_at == "" {
+		readAt = pgtype.Timestamptz{Valid: false}
+	} else {
+		parsed, err := time.Parse(time.RFC3339, read_at)
+		if err != nil {
+			parsed, err = time.ParseInLocation("2006-01-02T15:04", read_at, time.Local)
+		}
+		if err != nil {
+			h.Logger.Error("Invalid read_at value: "+err.Error(), map[string]string{"read_at": read_at})
+			return nil, errors.New("invalid read at value")
+		}
+		readAt = pgtype.Timestamptz{Time: parsed, Valid: true}
+	}
+
+	notes := r.FormValue("notes")
+
+	formData := &form{
+		PublicationStatus: publication_status,
+		Kind:              kind,
+		Rating:            rating,
+		OwnershipStatus:   ownership_status,
+		ReadingStatus:     reading_status,
+		CurrentChapter:    currentChapter,
+		ReadAt:            readAt,
+		Notes:             notes,
+	}
+	return formData, nil
+}
+
+func (h *Handler) formOpenLibrarySearch(r *http.Request) (string, string, error) {
+	title := strings.TrimSpace(r.FormValue("title"))
+	author := strings.TrimSpace(r.FormValue("author"))
+	if title == "" {
+		return "", "", errors.New("title is required")
+	}
+	return title, author, nil
+}
+
+func (h *Handler) formSelectedMetadata(r *http.Request) (*BookMetadataCandidate, error) {
+	title := strings.TrimSpace(r.FormValue("selected_title"))
+	if title == "" {
+		return nil, errors.New("selected title is required")
+	}
+
+	source := strings.TrimSpace(r.FormValue("selected_source"))
+	switch source {
+	case MetadataSourceOpenLibrary, MetadataSourceGoogleBooks:
+	case "":
+		return nil, errors.New("selected metadata source is required")
+	default:
+		return nil, errors.New("invalid selected metadata source")
+	}
+
+	metadata := &BookMetadataCandidate{
+		Source:      source,
+		SourceID:    strings.TrimSpace(r.FormValue("selected_source_id")),
+		Title:       title,
+		Author:      strings.TrimSpace(r.FormValue("selected_author")),
+		Description: strings.TrimSpace(r.FormValue("selected_description")),
+		Genres:      nonNilStrings(NormalizeGenres(r.Form["selected_genres"])),
+		Language:    strings.TrimSpace(r.FormValue("selected_language")),
+		CoverURL:    strings.TrimSpace(r.FormValue("selected_cover_url")),
+		WorkKey:     strings.TrimSpace(r.FormValue("selected_work_key")),
+	}
+	if metadata.SourceID == "" && metadata.WorkKey != "" {
+		metadata.SourceID = metadata.WorkKey
+	}
+
+	if coverID := strings.TrimSpace(r.FormValue("selected_cover_id")); coverID != "" {
+		parsed, err := strconv.Atoi(coverID)
+		if err != nil {
+			return nil, errors.New("invalid selected cover id")
+		}
+		metadata.CoverID = parsed
+	}
+	if year := strings.TrimSpace(r.FormValue("selected_publication_year")); year != "" {
+		parsed, err := strconv.ParseInt(year, 10, 32)
+		if err != nil {
+			return nil, errors.New("invalid selected publication year")
+		}
+		publicationYear := int32(parsed)
+		metadata.PublicationYear = &publicationYear
+	}
+
+	return metadata, nil
 }
 
 func (h *Handler) SessionId(ctx context.Context, r *http.Request) (int64, int, error) {

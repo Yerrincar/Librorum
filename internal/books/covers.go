@@ -10,6 +10,7 @@ import (
 	"image/jpeg"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -23,9 +24,10 @@ type Manager struct {
 	CacheDir    string
 	HTTPClient  *http.Client
 	OpenLibrary OpenLibraryClient
+	GoogleBooks GoogleBooksClient
 }
 
-func NewManager(cacheDir, openLibraryContact string) *Manager {
+func NewManager(cacheDir, openLibraryContact, googleBooksAPIKey string) *Manager {
 	client := &http.Client{Timeout: 10 * time.Second}
 	return &Manager{
 		CacheDir:   cacheDir,
@@ -33,6 +35,10 @@ func NewManager(cacheDir, openLibraryContact string) *Manager {
 		OpenLibrary: OpenLibraryClient{
 			HTTPClient: client,
 			Contact:    openLibraryContact,
+		},
+		GoogleBooks: GoogleBooksClient{
+			HTTPClient: client,
+			APIKey:     googleBooksAPIKey,
 		},
 	}
 }
@@ -213,11 +219,25 @@ func (m *Manager) extractFromEPUB(pkg *Package, internalPath string) (string, er
 }
 
 func (m *Manager) downloadOpenLibraryCover(ctx context.Context, coverID int, dstPath string) (string, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("https://covers.openlibrary.org/b/id/%d.jpg", coverID), nil)
+	return m.downloadCoverURL(ctx, fmt.Sprintf("https://covers.openlibrary.org/b/id/%d.jpg", coverID), dstPath, m.OpenLibrary.UserAgent())
+}
+
+func (m *Manager) downloadCoverURL(ctx context.Context, coverURL, dstPath, userAgent string) (string, error) {
+	parsed, err := url.Parse(coverURL)
 	if err != nil {
 		return "", err
 	}
-	req.Header.Set("User-Agent", m.OpenLibrary.UserAgent())
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return "", fmt.Errorf("unsupported cover URL scheme: %s", parsed.Scheme)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, parsed.String(), nil)
+	if err != nil {
+		return "", err
+	}
+	if strings.TrimSpace(userAgent) != "" {
+		req.Header.Set("User-Agent", userAgent)
+	}
 
 	client := m.HTTPClient
 	if client == nil {
@@ -231,7 +251,11 @@ func (m *Manager) downloadOpenLibraryCover(ctx context.Context, coverID int, dst
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return "", fmt.Errorf("openlibrary cover download failed: %s", resp.Status)
+		return "", fmt.Errorf("cover download failed: %s", resp.Status)
+	}
+
+	if err := os.MkdirAll(filepath.Dir(dstPath), 0o755); err != nil {
+		return "", err
 	}
 
 	out, err := os.Create(dstPath)
@@ -244,6 +268,26 @@ func (m *Manager) downloadOpenLibraryCover(ctx context.Context, coverID int, dst
 		return "", err
 	}
 	return dstPath, out.Sync()
+}
+
+func (m *Manager) externalCoverPath(title, source, sourceID, coverURL string) string {
+	baseTitle := storage.SanitizeFileName(title)
+	if baseTitle == "file" {
+		baseTitle = "cover"
+	}
+
+	baseID := storage.SanitizeFileName(sourceID)
+	if baseID == "file" {
+		sum := sha256.Sum256([]byte(coverURL))
+		baseID = hex.EncodeToString(sum[:])[:12]
+	}
+
+	extPath := coverURL
+	if parsed, err := url.Parse(coverURL); err == nil {
+		extPath = parsed.Path
+	}
+
+	return filepath.Join(m.CacheDir, fmt.Sprintf("%s_%s_%s%s", baseTitle, storage.SanitizeFileName(source), baseID, coverExtension(extPath)))
 }
 
 func (m *Manager) cachePath(pkg *Package, ext string) string {

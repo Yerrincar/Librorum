@@ -39,7 +39,7 @@ func main() {
 	if err := storage.EnsureDirs(paths); err != nil {
 		logger.Fatal("prepare storage directories: %v"+err.Error(), nil)
 	}
-	manager := books.NewManager(paths.CoverCacheDir, cfg.OLContact)
+	manager := books.NewManager(paths.CoverCacheDir, cfg.OLContact, cfg.GoogleBooksAPIKey)
 	h := &books.Handler{
 		Db:      dbPool,
 		Queries: db.New(dbPool),

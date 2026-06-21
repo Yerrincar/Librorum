@@ -2,7 +2,13 @@
 import { onMounted, reactive, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { getCurrentUser, type UserResponse } from '@/api/auth'
-import { importEpubBook } from '@/api/books'
+import {
+  bookTitle,
+  importMetadataBook,
+  importEpubBook,
+  searchBookMetadata,
+  type BookMetadataCandidateResponse,
+} from '@/api/books'
 
 const user = ref<UserResponse | null>(null)
 const checkingUser = ref(true)
@@ -10,8 +16,14 @@ const loading = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
 const selectedFile = ref<File | null>(null)
+const importMethod = ref<'epub' | 'metadata'>('epub')
+const searchingMetadata = ref(false)
+const metadataCandidates = ref<BookMetadataCandidateResponse[]>([])
+const selectedMetadata = ref<BookMetadataCandidateResponse | null>(null)
 
 const form = reactive({
+  title: '',
+  author: '',
   kind: 'book',
   rating: '',
   ownership_status: 'none',
@@ -37,9 +49,43 @@ function selectFile(event: Event) {
   selectedFile.value = input.files?.[0] ?? null
 }
 
+async function searchMetadata() {
+  if (form.title.trim() === '') {
+    errorMessage.value = 'Enter a title first'
+    return
+  }
+
+  searchingMetadata.value = true
+  errorMessage.value = ''
+  successMessage.value = ''
+  metadataCandidates.value = []
+  selectedMetadata.value = null
+
+  try {
+    metadataCandidates.value = await searchBookMetadata(form.title, form.author)
+    selectedMetadata.value = metadataCandidates.value[0] ?? null
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : 'Metadata search failed'
+  } finally {
+    searchingMetadata.value = false
+  }
+}
+
+function metadataSourceLabel(candidate: BookMetadataCandidateResponse): string {
+  return candidate.source === 'google_books' ? 'Google Books' : 'OpenLibrary'
+}
+
+function metadataCandidateKey(candidate: BookMetadataCandidateResponse): string {
+  return `${candidate.source}:${candidate.source_id || candidate.work_key || candidate.title}`
+}
+
 async function submitImport() {
-  if (!selectedFile.value) {
+  if (importMethod.value === 'epub' && !selectedFile.value) {
     errorMessage.value = 'Select an EPUB file first'
+    return
+  }
+  if (importMethod.value === 'metadata' && !selectedMetadata.value) {
+    errorMessage.value = 'Search metadata and select a result first'
     return
   }
 
@@ -48,11 +94,17 @@ async function submitImport() {
   successMessage.value = ''
 
   try {
-    const book = await importEpubBook({
-      file: selectedFile.value,
-      ...form,
-    })
-    successMessage.value = `Imported ${book.title}`
+    const book =
+      importMethod.value === 'epub'
+        ? await importEpubBook({
+            file: selectedFile.value as File,
+            ...form,
+          })
+        : await importMetadataBook({
+            ...form,
+            metadata: selectedMetadata.value as BookMetadataCandidateResponse,
+          })
+    successMessage.value = `Imported ${bookTitle(book)}`
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'Book import failed'
   } finally {
@@ -77,14 +129,61 @@ async function submitImport() {
       <p>Logged in as {{ user.username }}</p>
 
       <section>
-        <h2>EPUB file</h2>
         <label>
-          File
-          <input type="file" name="file" accept=".epub,application/epub+zip" required @change="selectFile" />
+          Import method
+          <select v-model="importMethod" name="import_method">
+            <option value="epub">EPUB file</option>
+            <option value="metadata">Metadata search</option>
+          </select>
         </label>
       </section>
 
-      <section>
+      <section v-if="importMethod === 'epub'">
+        <h2>EPUB file</h2>
+        <label>
+          File
+          <input type="file" name="file" accept=".epub,application/epub+zip" @change="selectFile" />
+        </label>
+      </section>
+
+      <section v-else>
+        <h2>Metadata search</h2>
+        <label>
+          Title
+          <input v-model.trim="form.title" name="title" required />
+        </label>
+        <label>
+          Author
+          <input v-model.trim="form.author" name="author" />
+        </label>
+
+        <button type="button" :disabled="searchingMetadata" @click="searchMetadata">
+          {{ searchingMetadata ? 'Searching...' : 'Search metadata' }}
+        </button>
+
+        <section v-if="metadataCandidates.length > 0" aria-label="Metadata results">
+          <h3>Choose a result</h3>
+          <label v-for="candidate in metadataCandidates" :key="metadataCandidateKey(candidate)">
+            <input v-model="selectedMetadata" type="radio" name="metadata_result" :value="candidate" />
+            [{{ metadataSourceLabel(candidate) }}]
+            {{ candidate.title }}
+            <span v-if="candidate.author">by {{ candidate.author }}</span>
+            <span v-if="candidate.publication_year">({{ candidate.publication_year }})</span>
+          </label>
+        </section>
+
+        <article v-if="selectedMetadata">
+          <h3>{{ selectedMetadata.title }}</h3>
+          <p>{{ metadataSourceLabel(selectedMetadata) }}</p>
+          <p v-if="selectedMetadata.author">{{ selectedMetadata.author }}</p>
+          <p v-if="selectedMetadata.publication_year">{{ selectedMetadata.publication_year }}</p>
+          <p v-if="selectedMetadata.language">Language: {{ selectedMetadata.language }}</p>
+          <p v-if="selectedMetadata.genres?.length">Genres: {{ selectedMetadata.genres.join(', ') }}</p>
+          <p v-if="selectedMetadata.description">{{ selectedMetadata.description }}</p>
+        </article>
+      </section>
+
+      <section v-if="importMethod === 'epub' || selectedMetadata">
         <h2>Library fields</h2>
 
         <label>
@@ -150,7 +249,7 @@ async function submitImport() {
       </section>
 
       <button type="submit" :disabled="loading">
-        {{ loading ? 'Importing...' : 'Import EPUB' }}
+        {{ loading ? 'Importing...' : importMethod === 'epub' ? 'Import EPUB' : 'Import from metadata' }}
       </button>
 
       <p v-if="errorMessage" role="alert">{{ errorMessage }}</p>
