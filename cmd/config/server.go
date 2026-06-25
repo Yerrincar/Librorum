@@ -27,7 +27,7 @@ func (a *App) Serve(l *Logger, cfg *Config) error {
 		Handler:      a.routes(),
 		IdleTimeout:  time.Minute,
 		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 30 * time.Second,
+		WriteTimeout: 2 * time.Minute,
 	}
 	shutdownError := make(chan error)
 	go func() {

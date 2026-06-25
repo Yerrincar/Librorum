@@ -29,6 +29,7 @@ type openLibraryBookDoc struct {
 	Languages        []string `json:"language"`
 	CoverID          int      `json:"cover_i"`
 	EditionKeys      []string `json:"edition_key"`
+	ISBNs            []string `json:"isbn"`
 }
 
 type openLibraryWorkResponse struct {
@@ -153,12 +154,15 @@ func (c OpenLibraryClient) SearchBookMetadataCandidates(ctx context.Context, tit
 			continue
 		}
 
+		isbns := uniqueISBNs(doc.ISBNs)
 		metadata := BookMetadataCandidate{
 			Source:   MetadataSourceOpenLibrary,
 			SourceID: doc.Key,
 			Title:    doc.Title,
 			Genres:   nonNilStrings(NormalizeGenres(limitStrings(doc.Subjects, 10))),
 			Language: firstString(doc.Languages),
+			ISBN:     firstString(isbns),
+			ISBNs:    isbns,
 			CoverID:  doc.CoverID,
 			WorkKey:  doc.Key,
 		}

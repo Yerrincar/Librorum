@@ -27,18 +27,24 @@ type googleBooksVolume struct {
 }
 
 type googleBooksVolumeInfo struct {
-	Title         string                `json:"title"`
-	Authors       []string              `json:"authors"`
-	Description   string                `json:"description"`
-	PublishedDate string                `json:"publishedDate"`
-	Categories    []string              `json:"categories"`
-	Language      string                `json:"language"`
-	ImageLinks    googleBooksImageLinks `json:"imageLinks"`
+	Title               string                          `json:"title"`
+	Authors             []string                        `json:"authors"`
+	Description         string                          `json:"description"`
+	PublishedDate       string                          `json:"publishedDate"`
+	Categories          []string                        `json:"categories"`
+	Language            string                          `json:"language"`
+	ImageLinks          googleBooksImageLinks           `json:"imageLinks"`
+	IndustryIdentifiers []googleBooksIndustryIdentifier `json:"industryIdentifiers"`
 }
 
 type googleBooksImageLinks struct {
 	SmallThumbnail string `json:"smallThumbnail"`
 	Thumbnail      string `json:"thumbnail"`
+}
+
+type googleBooksIndustryIdentifier struct {
+	Type       string `json:"type"`
+	Identifier string `json:"identifier"`
 }
 
 func (c GoogleBooksClient) SearchBookMetadataCandidates(ctx context.Context, title, author string) ([]BookMetadataCandidate, error) {
@@ -58,7 +64,7 @@ func (c GoogleBooksClient) SearchBookMetadataCandidates(ctx context.Context, tit
 	q.Set("q", strings.Join(queryParts, " "))
 	q.Set("maxResults", "5")
 	q.Set("printType", "books")
-	q.Set("fields", "items(id,volumeInfo(title,authors,description,publishedDate,categories,language,imageLinks(thumbnail,smallThumbnail)))")
+	q.Set("fields", "items(id,volumeInfo(title,authors,description,publishedDate,categories,language,imageLinks(thumbnail,smallThumbnail),industryIdentifiers(type,identifier)))")
 	if strings.TrimSpace(c.APIKey) != "" {
 		q.Set("key", c.APIKey)
 	}
@@ -97,6 +103,7 @@ func (c GoogleBooksClient) SearchBookMetadataCandidates(ctx context.Context, tit
 			continue
 		}
 
+		isbns := googleBooksISBNs(info.IndustryIdentifiers)
 		candidates = append(candidates, BookMetadataCandidate{
 			Source:          MetadataSourceGoogleBooks,
 			SourceID:        item.ID,
@@ -106,10 +113,27 @@ func (c GoogleBooksClient) SearchBookMetadataCandidates(ctx context.Context, tit
 			Genres:          nonNilStrings(NormalizeGenres(limitStrings(info.Categories, 10))),
 			Language:        strings.TrimSpace(info.Language),
 			PublicationYear: googleBooksPublicationYear(info.PublishedDate),
+			ISBN:            firstString(isbns),
+			ISBNs:           isbns,
 			CoverURL:        normalizeGoogleBooksImageURL(firstString([]string{info.ImageLinks.Thumbnail, info.ImageLinks.SmallThumbnail})),
 		})
 	}
 	return candidates, nil
+}
+
+func googleBooksISBNs(identifiers []googleBooksIndustryIdentifier) []string {
+	ordered := make([]string, 0, len(identifiers))
+	for _, identifier := range identifiers {
+		if strings.EqualFold(identifier.Type, "ISBN_13") {
+			ordered = append(ordered, identifier.Identifier)
+		}
+	}
+	for _, identifier := range identifiers {
+		if strings.EqualFold(identifier.Type, "ISBN_10") {
+			ordered = append(ordered, identifier.Identifier)
+		}
+	}
+	return uniqueISBNs(ordered)
 }
 
 func googleBooksPublicationYear(publishedDate string) *int32 {

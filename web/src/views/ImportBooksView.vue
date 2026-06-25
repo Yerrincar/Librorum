@@ -72,7 +72,9 @@ async function searchMetadata() {
 }
 
 function metadataSourceLabel(candidate: BookMetadataCandidateResponse): string {
-  return candidate.source === 'google_books' ? 'Google Books' : 'OpenLibrary'
+  if (candidate.source === 'calibre') return 'Calibre'
+  if (candidate.source === 'google_books') return 'Google Books'
+  return 'OpenLibrary'
 }
 
 function metadataCandidateKey(candidate: BookMetadataCandidateResponse): string {
@@ -177,6 +179,7 @@ async function submitImport() {
           <p>{{ metadataSourceLabel(selectedMetadata) }}</p>
           <p v-if="selectedMetadata.author">{{ selectedMetadata.author }}</p>
           <p v-if="selectedMetadata.publication_year">{{ selectedMetadata.publication_year }}</p>
+          <p v-if="selectedMetadata.isbn">ISBN: {{ selectedMetadata.isbn }}</p>
           <p v-if="selectedMetadata.language">Language: {{ selectedMetadata.language }}</p>
           <p v-if="selectedMetadata.genres?.length">Genres: {{ selectedMetadata.genres.join(', ') }}</p>
           <p v-if="selectedMetadata.description">{{ selectedMetadata.description }}</p>

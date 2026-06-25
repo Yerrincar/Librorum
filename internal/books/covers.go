@@ -290,6 +290,31 @@ func (m *Manager) externalCoverPath(title, source, sourceID, coverURL string) st
 	return filepath.Join(m.CacheDir, fmt.Sprintf("%s_%s_%s%s", baseTitle, storage.SanitizeFileName(source), baseID, coverExtension(extPath)))
 }
 
+func (m *Manager) safeCachedCoverPath(coverPath string) string {
+	coverPath = strings.TrimSpace(coverPath)
+	if coverPath == "" {
+		return ""
+	}
+
+	cacheDirAbs, err := filepath.Abs(m.CacheDir)
+	if err != nil {
+		return ""
+	}
+	coverPathAbs, err := filepath.Abs(coverPath)
+	if err != nil {
+		return ""
+	}
+
+	rel, err := filepath.Rel(cacheDirAbs, coverPathAbs)
+	if err != nil || rel == "." || strings.HasPrefix(rel, "..") || filepath.IsAbs(rel) {
+		return ""
+	}
+	if !fileExists(coverPathAbs) {
+		return ""
+	}
+	return coverPathAbs
+}
+
 func (m *Manager) cachePath(pkg *Package, ext string) string {
 	if ext == "" {
 		ext = ".jpg"

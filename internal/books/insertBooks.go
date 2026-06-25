@@ -127,6 +127,8 @@ func (h *Handler) InsertOpenLibraryBooks(w http.ResponseWriter, r *http.Request)
 
 	coverPath := ""
 	switch metadata.Source {
+	case MetadataSourceCalibre:
+		coverPath = h.Manager.safeCachedCoverPath(metadata.CoverPath)
 	case MetadataSourceOpenLibrary:
 		if metadata.CoverID > 0 {
 			coverPath = filepath.Join(h.Manager.CacheDir, fmt.Sprintf("%s_%d.jpg", storage.SanitizeFileName(metadata.Title), metadata.CoverID))
@@ -197,7 +199,12 @@ func (h *Handler) SearchOpenLibraryBooks(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	metadata := make([]BookMetadataCandidate, 0, 10)
+	metadata := make([]BookMetadataCandidate, 0, 11)
+	calibreMetadata, calibreErr := h.CalibreMetadata(ctx, h.Paths.CoverCacheDir, h.Paths.ImportsDir, title, author)
+	if calibreErr != nil {
+		h.Logger.Error("Error trying to fetch calibre metadata: "+calibreErr.Error(), nil)
+	}
+
 	openLibraryMetadata, openLibraryErr := h.Manager.OpenLibrary.SearchBookMetadataCandidates(ctx, title, author)
 	if openLibraryErr != nil {
 		h.Logger.Error("Error trying to fetch OpenLibrary metadata: "+openLibraryErr.Error(), nil)
@@ -211,9 +218,20 @@ func (h *Handler) SearchOpenLibraryBooks(w http.ResponseWriter, r *http.Request)
 	} else {
 		metadata = append(metadata, googleBooksMetadata...)
 	}
+	if calibreMetadata != nil && calibreMetadata.CoverPath == "" {
+		updated, err := h.RetryCalibreMetadataCover(ctx, h.Paths.CoverCacheDir, h.Paths.ImportsDir, title, author, calibreMetadata, candidateISBNs(openLibraryMetadata, googleBooksMetadata))
+		if err != nil {
+			h.Logger.Error("Error trying to retry Calibre metadata with external ISBNs: "+err.Error(), nil)
+		} else {
+			calibreMetadata = updated
+		}
+	}
+	if calibreMetadata != nil {
+		metadata = append([]BookMetadataCandidate{*calibreMetadata}, metadata...)
+	}
 
 	if len(metadata) == 0 {
-		if openLibraryErr != nil || googleBooksErr != nil {
+		if calibreErr != nil || openLibraryErr != nil || googleBooksErr != nil {
 			http.Error(w, "Error trying to fetch metadata", http.StatusBadGateway)
 			return
 		}
@@ -223,7 +241,9 @@ func (h *Handler) SearchOpenLibraryBooks(w http.ResponseWriter, r *http.Request)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(metadata)
+	if err := json.NewEncoder(w).Encode(metadata); err != nil {
+		h.Logger.Error("Error trying to write metadata search response: "+err.Error(), nil)
+	}
 }
 
 func (h *Handler) formMetadata(r *http.Request) (*form, error) {
@@ -299,6 +319,17 @@ func (h *Handler) formOpenLibrarySearch(r *http.Request) (string, string, error)
 	return title, author, nil
 }
 
+func candidateISBNs(groups ...[]BookMetadataCandidate) []string {
+	isbns := make([]string, 0)
+	for _, group := range groups {
+		for _, candidate := range group {
+			isbns = append(isbns, candidate.ISBN)
+			isbns = append(isbns, candidate.ISBNs...)
+		}
+	}
+	return uniqueISBNs(isbns)
+}
+
 func (h *Handler) formSelectedMetadata(r *http.Request) (*BookMetadataCandidate, error) {
 	title := strings.TrimSpace(r.FormValue("selected_title"))
 	if title == "" {
@@ -307,7 +338,7 @@ func (h *Handler) formSelectedMetadata(r *http.Request) (*BookMetadataCandidate,
 
 	source := strings.TrimSpace(r.FormValue("selected_source"))
 	switch source {
-	case MetadataSourceOpenLibrary, MetadataSourceGoogleBooks:
+	case MetadataSourceCalibre, MetadataSourceOpenLibrary, MetadataSourceGoogleBooks:
 	case "":
 		return nil, errors.New("selected metadata source is required")
 	default:
@@ -323,6 +354,7 @@ func (h *Handler) formSelectedMetadata(r *http.Request) (*BookMetadataCandidate,
 		Genres:      nonNilStrings(NormalizeGenres(r.Form["selected_genres"])),
 		Language:    strings.TrimSpace(r.FormValue("selected_language")),
 		CoverURL:    strings.TrimSpace(r.FormValue("selected_cover_url")),
+		CoverPath:   strings.TrimSpace(r.FormValue("selected_cover_path")),
 		WorkKey:     strings.TrimSpace(r.FormValue("selected_work_key")),
 	}
 	if metadata.SourceID == "" && metadata.WorkKey != "" {

@@ -28,7 +28,7 @@ export type LibraryItemResponse = {
 
 export type LibraryItemKind = 'book' | 'manga' | 'manhwa'
 
-export type MetadataSource = 'openlibrary' | 'google_books'
+export type MetadataSource = 'calibre' | 'openlibrary' | 'google_books'
 
 export type BookMetadataCandidateResponse = {
   source: MetadataSource
@@ -39,8 +39,10 @@ export type BookMetadataCandidateResponse = {
   genres: string[] | null
   language: string
   publication_year: number | null
+  isbn: string
   cover_id: number
   cover_url: string
+  cover_path: string
   work_key: string
 }
 
@@ -79,6 +81,9 @@ export async function importMetadataBook(
   form.append('selected_work_key', payload.metadata.work_key)
   form.append('selected_cover_id', String(payload.metadata.cover_id))
   form.append('selected_cover_url', payload.metadata.cover_url)
+  if (payload.metadata.cover_path) {
+    form.append('selected_cover_path', payload.metadata.cover_path)
+  }
   if (payload.metadata.publication_year !== null) {
     form.append('selected_publication_year', String(payload.metadata.publication_year))
   }
@@ -103,13 +108,13 @@ export async function searchBookMetadata(
   title: string,
   author: string,
 ): Promise<BookMetadataCandidateResponse[]> {
-  const form = new FormData()
-  form.append('title', title.trim())
-  if (author.trim() !== '') {
-    form.append('author', author.trim())
-  }
+	const form = new FormData()
+	form.append('title', title.trim())
+	if (author.trim() !== '') {
+		form.append('author', author.trim())
+	}
 
-  const response = await fetch('/books/openlibrary/search', {
+	const response = await fetch('/books/openlibrary/search', {
     method: 'POST',
     credentials: 'include',
     body: form,
