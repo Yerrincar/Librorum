@@ -16,6 +16,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"unicode"
 )
 
 type calibreOPFPackage struct {
@@ -38,6 +39,11 @@ type calibreOPFIdentifier struct {
 }
 
 var htmlTagRE = regexp.MustCompile(`<[^>]*>`)
+
+type calibreRetryCandidate struct {
+	Title string
+	ISBN  string
+}
 
 func (h *Handler) CalibreMetadata(ctx context.Context, coverDir, dataDir, title, author string) (*BookMetadataCandidate, error) {
 	title = strings.TrimSpace(title)
@@ -82,14 +88,19 @@ func (h *Handler) CalibreMetadata(ctx context.Context, coverDir, dataDir, title,
 		h.Logger.Info("Calibre ISBN retry returned metadata without a cover", map[string]string{"title": isbnMetadata.Title, "isbn": metadata.ISBN})
 		return metadata, nil
 	}
+	if !titleLikelyMatches(title, isbnMetadata.Title) {
+		h.Logger.Info("Rejected Calibre ISBN retry cover for mismatched title", map[string]string{"requested_title": title, "returned_title": isbnMetadata.Title, "isbn": metadata.ISBN})
+		_ = os.Remove(isbnMetadata.CoverPath)
+		return metadata, nil
+	}
 	if isbnMetadata.ISBN == "" {
 		isbnMetadata.ISBN = metadata.ISBN
 	}
 	return isbnMetadata, nil
 }
 
-func (h *Handler) RetryCalibreMetadataCover(ctx context.Context, coverDir, dataDir, title, author string, metadata *BookMetadataCandidate, isbnCandidates []string) (*BookMetadataCandidate, error) {
-	if metadata == nil || metadata.CoverPath != "" {
+func (h *Handler) RetryCalibreMetadataCover(ctx context.Context, coverDir, dataDir, title, author string, metadata *BookMetadataCandidate, retryCandidates []calibreRetryCandidate) (*BookMetadataCandidate, error) {
+	if metadata == nil {
 		return metadata, nil
 	}
 
@@ -97,6 +108,16 @@ func (h *Handler) RetryCalibreMetadataCover(ctx context.Context, coverDir, dataD
 	author = strings.TrimSpace(author)
 	if title == "" {
 		return metadata, nil
+	}
+
+	metadataMatches := titleLikelyMatches(title, metadata.Title)
+	if metadata.CoverPath != "" {
+		if metadataMatches {
+			return metadata, nil
+		}
+		h.Logger.Info("Rejected Calibre cover for mismatched title", map[string]string{"requested_title": title, "returned_title": metadata.Title, "cover_path": metadata.CoverPath})
+		_ = os.Remove(metadata.CoverPath)
+		metadata.CoverPath = ""
 	}
 
 	coverDir, err := filepath.Abs(coverDir)
@@ -116,23 +137,86 @@ func (h *Handler) RetryCalibreMetadataCover(ctx context.Context, coverDir, dataD
 		return metadata, err
 	}
 
-	for _, isbn := range uniqueISBNs(isbnCandidates) {
-		if isbn == "" || isbn == metadata.ISBN {
-			continue
+	attempted := make(map[string]struct{})
+	attempt := func(searchTitle, isbn string) *BookMetadataCandidate {
+		searchTitle = strings.TrimSpace(searchTitle)
+		isbn = normalizeISBN(isbn)
+		if searchTitle == "" {
+			return nil
+		}
+		if isbn == "" && strings.EqualFold(searchTitle, title) {
+			return nil
 		}
 
-		isbnMetadata, err := h.fetchCalibreMetadata(ctx, coverDir, tempRoot, title, author, isbn)
-		if err != nil {
-			h.Logger.Error("Error trying to fetch Calibre metadata by external ISBN: "+err.Error(), map[string]string{"isbn": isbn})
-			continue
+		key := strings.ToLower(searchTitle) + "\x00" + isbn
+		if _, ok := attempted[key]; ok {
+			return nil
 		}
-		if isbnMetadata == nil || isbnMetadata.CoverPath == "" {
-			continue
+		attempted[key] = struct{}{}
+
+		isbnMetadata, err := h.fetchCalibreMetadata(ctx, coverDir, tempRoot, searchTitle, author, isbn)
+		if err != nil {
+			h.Logger.Error("Error trying to fetch Calibre metadata by external ISBN: "+err.Error(), map[string]string{"isbn": isbn, "title": searchTitle})
+			return nil
+		}
+		if isbnMetadata == nil {
+			return nil
+		}
+		if !titleLikelyMatches(title, isbnMetadata.Title) {
+			if isbnMetadata.CoverPath != "" {
+				_ = os.Remove(isbnMetadata.CoverPath)
+			}
+			h.Logger.Info("Rejected Calibre external ISBN result for mismatched title", map[string]string{"requested_title": title, "returned_title": isbnMetadata.Title, "isbn": isbn})
+			return nil
 		}
 		if isbnMetadata.ISBN == "" {
 			isbnMetadata.ISBN = isbn
 		}
-		return isbnMetadata, nil
+		return isbnMetadata
+	}
+
+	consider := func(candidate *BookMetadataCandidate) bool {
+		if candidate == nil {
+			return false
+		}
+		if candidate.CoverPath != "" {
+			metadata = candidate
+			return true
+		}
+		if !metadataMatches {
+			metadata = candidate
+			metadataMatches = true
+		}
+		return false
+	}
+
+	for _, candidate := range uniqueCalibreRetryCandidates(retryCandidates) {
+		titles := retryTitles(title, metadata.Title, candidate.Title)
+		for i := 0; i < len(titles); i++ {
+			searchTitle := titles[i]
+			isbnMetadata := attempt(searchTitle, candidate.ISBN)
+			if isbnMetadata == nil {
+				continue
+			}
+			if consider(isbnMetadata) {
+				return metadata, nil
+			}
+
+			if !containsTitle(titles, isbnMetadata.Title) {
+				titles = append(titles, isbnMetadata.Title)
+			}
+			if candidate.ISBN != "" {
+				if consider(attempt(isbnMetadata.Title, "")) {
+					return metadata, nil
+				}
+			}
+		}
+
+		if candidate.ISBN != "" && candidate.Title != "" {
+			if consider(attempt(candidate.Title, "")) {
+				return metadata, nil
+			}
+		}
 	}
 
 	return metadata, nil
@@ -273,6 +357,60 @@ func uniqueISBNs(values []string) []string {
 	return isbns
 }
 
+func uniqueCalibreRetryCandidates(candidates []calibreRetryCandidate) []calibreRetryCandidate {
+	seen := make(map[string]struct{})
+	unique := make([]calibreRetryCandidate, 0, len(candidates))
+	for _, candidate := range candidates {
+		candidate.Title = strings.TrimSpace(candidate.Title)
+		candidate.ISBN = normalizeISBN(candidate.ISBN)
+		if candidate.Title == "" && candidate.ISBN == "" {
+			continue
+		}
+		key := strings.ToLower(candidate.Title) + "\x00" + candidate.ISBN
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		unique = append(unique, candidate)
+	}
+	return unique
+}
+
+func retryTitles(originalTitle, currentMetadataTitle, candidateTitle string) []string {
+	titles := []string{originalTitle, candidateTitle}
+	if titleLikelyMatches(originalTitle, currentMetadataTitle) {
+		titles = append(titles, currentMetadataTitle)
+	}
+	return uniqueTitles(titles)
+}
+
+func uniqueTitles(values []string) []string {
+	seen := make(map[string]struct{})
+	unique := make([]string, 0, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+		key := strings.ToLower(value)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		unique = append(unique, value)
+	}
+	return unique
+}
+
+func containsTitle(values []string, title string) bool {
+	for _, value := range values {
+		if strings.EqualFold(strings.TrimSpace(value), strings.TrimSpace(title)) {
+			return true
+		}
+	}
+	return false
+}
+
 func (id calibreOPFIdentifier) scheme() string {
 	for _, attr := range id.Attrs {
 		if attr.Name.Local == "scheme" {
@@ -324,6 +462,59 @@ func normalizeISBN(value string) string {
 		}
 	}
 	return b.String()
+}
+
+func titleLikelyMatches(queryTitle, candidateTitle string) bool {
+	queryTokens := titleTokens(primaryTitle(queryTitle))
+	candidateTokens := titleTokens(primaryTitle(candidateTitle))
+	if len(queryTokens) == 0 || len(candidateTokens) == 0 {
+		return false
+	}
+
+	required := queryTokens
+	if len(required) > 2 {
+		required = required[:2]
+	}
+
+	candidateSet := make(map[string]struct{}, len(candidateTokens))
+	for _, token := range candidateTokens {
+		candidateSet[token] = struct{}{}
+	}
+	for _, token := range required {
+		if _, ok := candidateSet[token]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
+func primaryTitle(title string) string {
+	if before, _, ok := strings.Cut(title, ":"); ok {
+		return before
+	}
+	return title
+}
+
+func titleTokens(title string) []string {
+	stopWords := map[string]struct{}{
+		"a": {}, "an": {}, "and": {}, "the": {},
+		"de": {}, "del": {}, "el": {}, "la": {}, "las": {}, "los": {}, "y": {},
+		"book": {}, "libro": {}, "saga": {}, "vol": {}, "volumen": {},
+	}
+
+	fields := strings.FieldsFunc(strings.ToLower(title), func(r rune) bool {
+		return !unicode.IsLetter(r) && !unicode.IsDigit(r)
+	})
+	tokens := make([]string, 0, len(fields))
+	for _, field := range fields {
+		if _, ok := stopWords[field]; ok {
+			continue
+		}
+		if field != "" {
+			tokens = append(tokens, field)
+		}
+	}
+	return tokens
 }
 
 func calibreHash(parts ...string) string {

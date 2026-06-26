@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -219,12 +220,23 @@ func (h *Handler) SearchOpenLibraryBooks(w http.ResponseWriter, r *http.Request)
 		metadata = append(metadata, googleBooksMetadata...)
 	}
 	if calibreMetadata != nil && calibreMetadata.CoverPath == "" {
-		updated, err := h.RetryCalibreMetadataCover(ctx, h.Paths.CoverCacheDir, h.Paths.ImportsDir, title, author, calibreMetadata, candidateISBNs(openLibraryMetadata, googleBooksMetadata))
+		retryCandidates := calibreRetryCandidates(title, openLibraryMetadata, googleBooksMetadata)
+		if len(retryCandidates) > 0 {
+			h.Logger.Info("Calibre external ISBN retry candidates", map[string]string{"count": strconv.Itoa(len(retryCandidates)), "candidates": retryCandidateSummary(retryCandidates)})
+		}
+		updated, err := h.RetryCalibreMetadataCover(ctx, h.Paths.CoverCacheDir, h.Paths.ImportsDir, title, author, calibreMetadata, retryCandidates)
 		if err != nil {
 			h.Logger.Error("Error trying to retry Calibre metadata with external ISBNs: "+err.Error(), nil)
 		} else {
 			calibreMetadata = updated
 		}
+	}
+	if calibreMetadata != nil && !titleLikelyMatches(title, calibreMetadata.Title) {
+		h.Logger.Info("Rejected Calibre metadata for mismatched title", map[string]string{"requested_title": title, "returned_title": calibreMetadata.Title})
+		if calibreMetadata.CoverPath != "" {
+			_ = os.Remove(calibreMetadata.CoverPath)
+		}
+		calibreMetadata = nil
 	}
 	if calibreMetadata != nil {
 		metadata = append([]BookMetadataCandidate{*calibreMetadata}, metadata...)
@@ -319,15 +331,39 @@ func (h *Handler) formOpenLibrarySearch(r *http.Request) (string, string, error)
 	return title, author, nil
 }
 
-func candidateISBNs(groups ...[]BookMetadataCandidate) []string {
-	isbns := make([]string, 0)
+func calibreRetryCandidates(queryTitle string, groups ...[]BookMetadataCandidate) []calibreRetryCandidate {
+	candidates := make([]calibreRetryCandidate, 0)
 	for _, group := range groups {
 		for _, candidate := range group {
-			isbns = append(isbns, candidate.ISBN)
-			isbns = append(isbns, candidate.ISBNs...)
+			if !titleLikelyMatches(queryTitle, candidate.Title) {
+				continue
+			}
+			if candidate.ISBN == "" && len(candidate.ISBNs) == 0 {
+				candidates = append(candidates, calibreRetryCandidate{Title: candidate.Title})
+				continue
+			}
+			for _, isbn := range append([]string{candidate.ISBN}, candidate.ISBNs...) {
+				candidates = append(candidates, calibreRetryCandidate{Title: candidate.Title, ISBN: isbn})
+			}
 		}
 	}
-	return uniqueISBNs(isbns)
+	return uniqueCalibreRetryCandidates(candidates)
+}
+
+func retryCandidateSummary(candidates []calibreRetryCandidate) string {
+	parts := make([]string, 0, len(candidates))
+	for i, candidate := range candidates {
+		if i >= 12 {
+			parts = append(parts, "...")
+			break
+		}
+		if candidate.ISBN == "" {
+			parts = append(parts, candidate.Title)
+			continue
+		}
+		parts = append(parts, candidate.Title+":"+candidate.ISBN)
+	}
+	return strings.Join(parts, ", ")
 }
 
 func (h *Handler) formSelectedMetadata(r *http.Request) (*BookMetadataCandidate, error) {

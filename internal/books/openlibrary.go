@@ -50,7 +50,8 @@ func (c OpenLibraryClient) SearchCoverID(ctx context.Context, title, author stri
 	if strings.TrimSpace(author) != "" {
 		q.Set("author", author)
 	}
-	q.Set("limit", "5")
+	q.Set("limit", "20")
+	q.Set("fields", "key,title,author_name,first_publish_year,subject,language,cover_i,edition_key,isbn")
 	u.RawQuery = q.Encode()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)

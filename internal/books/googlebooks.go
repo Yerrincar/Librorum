@@ -62,7 +62,7 @@ func (c GoogleBooksClient) SearchBookMetadataCandidates(ctx context.Context, tit
 		queryParts = append(queryParts, "inauthor:"+author)
 	}
 	q.Set("q", strings.Join(queryParts, " "))
-	q.Set("maxResults", "5")
+	q.Set("maxResults", "20")
 	q.Set("printType", "books")
 	q.Set("fields", "items(id,volumeInfo(title,authors,description,publishedDate,categories,language,imageLinks(thumbnail,smallThumbnail),industryIdentifiers(type,identifier)))")
 	if strings.TrimSpace(c.APIKey) != "" {
