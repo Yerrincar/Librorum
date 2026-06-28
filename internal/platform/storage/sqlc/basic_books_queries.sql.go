@@ -117,7 +117,7 @@ func (q *Queries) InsertUser(ctx context.Context, arg InsertUserParams) (User, e
 }
 
 const selectBooksByUser = `-- name: SelectBooksByUser :many
-SELECT id, user_id, kind, title, author, description, language, publication_year, genres, rating, ownership_status, reading_status, publication_status, current_chapter, total_chapters, read_at, cover_path, notes, search_vector, created_at, updated_at FROM library_items WHERE user_id = $1 ORDER BY created_at LIMIT $2 OFFSET $3
+SELECT id, user_id, kind, title, author, description, language, publication_year, genres, rating, ownership_status, reading_status, publication_status, current_chapter, total_chapters, read_at, cover_path, notes, search_vector, created_at, updated_at FROM library_items WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3
 `
 
 type SelectBooksByUserParams struct {
@@ -169,7 +169,7 @@ func (q *Queries) SelectBooksByUser(ctx context.Context, arg SelectBooksByUserPa
 }
 
 const selectBooksByUserAndKind = `-- name: SelectBooksByUserAndKind :many
-SELECT id, user_id, kind, title, author, description, language, publication_year, genres, rating, ownership_status, reading_status, publication_status, current_chapter, total_chapters, read_at, cover_path, notes, search_vector, created_at, updated_at FROM library_items WHERE user_id = $1 AND kind = $2 ORDER BY created_at LIMIT $3 OFFSET $4
+SELECT id, user_id, kind, title, author, description, language, publication_year, genres, rating, ownership_status, reading_status, publication_status, current_chapter, total_chapters, read_at, cover_path, notes, search_vector, created_at, updated_at FROM library_items WHERE user_id = $1 AND kind = $2 ORDER BY created_at DESC LIMIT $3 OFFSET $4
 `
 
 type SelectBooksByUserAndKindParams struct {

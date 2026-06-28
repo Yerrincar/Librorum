@@ -1,8 +1,8 @@
 -- name: SelectBooksByUser :many
-SELECT * FROM library_items WHERE user_id = $1 ORDER BY created_at LIMIT $2 OFFSET $3; 
+SELECT * FROM library_items WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3;
 
 -- name: SelectBooksByUserAndKind :many
-SELECT * FROM library_items WHERE user_id = $1 AND kind = $2 ORDER BY created_at LIMIT $3 OFFSET $4; 
+SELECT * FROM library_items WHERE user_id = $1 AND kind = $2 ORDER BY created_at DESC LIMIT $3 OFFSET $4;
 
 -- name: SelectUserByUsername :one 
 SELECT * FROM users WHERE username = $1;

@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import BooksView from '@/views/BooksView.vue'
+import ExcelImportView from '@/views/ExcelImportView.vue'
 import HomeView from '@/views/HomeView.vue'
 import ImportBooksView from '@/views/ImportBooksView.vue'
 import LoginView from '@/views/LoginView.vue'
@@ -22,6 +23,11 @@ const router = createRouter({
       path: '/books/import',
       name: 'import-books',
       component: ImportBooksView,
+    },
+    {
+      path: '/books/import/excel',
+      name: 'excel-import',
+      component: ExcelImportView,
     },
     {
       path: '/register',

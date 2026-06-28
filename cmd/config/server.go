@@ -87,6 +87,7 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("POST /books/openlibrary/search", a.BookHandler.SearchOpenLibraryBooks)
 	mux.HandleFunc("POST /books/import/epub", a.BookHandler.InsertEpubBooks)
 	mux.HandleFunc("POST /books/import/openlibrary", a.BookHandler.InsertOpenLibraryBooks)
+	mux.HandleFunc("POST /books/import/excelImport", a.BookHandler.BulkExcelImport)
 	return logRequests(mux)
 }
 

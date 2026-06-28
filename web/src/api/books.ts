@@ -14,6 +14,18 @@ export type ImportMetadataBookRequest = Omit<ImportBookRequest, 'file'> & {
   metadata: BookMetadataCandidateResponse
 }
 
+export type ImportExcelBooksRequest = {
+  file: File
+  spreadsheet: string
+}
+
+export type ImportExcelBooksResponse = {
+  imported_count: number
+  skipped_count: number
+  imported: string[]
+  skipped: string[]
+}
+
 export type LibraryItemResponse = {
   id?: number
   title?: string
@@ -99,6 +111,26 @@ export async function importMetadataBook(
 
   if (!response.ok) {
     throw new Error(await readErrorMessage(response, 'Metadata import failed'))
+  }
+
+  return response.json()
+}
+
+export async function importExcelBooks(
+  payload: ImportExcelBooksRequest,
+): Promise<ImportExcelBooksResponse> {
+  const form = new FormData()
+  form.append('file', payload.file)
+  form.append('spreadsheet', payload.spreadsheet.trim())
+
+  const response = await fetch('/books/import/excelImport', {
+    method: 'POST',
+    credentials: 'include',
+    body: form,
+  })
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, 'Excel import failed'))
   }
 
   return response.json()

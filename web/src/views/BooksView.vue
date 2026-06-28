@@ -67,8 +67,10 @@ async function loadBooks(kind?: LibraryItemKind) {
 
     <section v-else aria-label="Book covers">
       <article v-for="book in books" :key="book.id ?? bookTitle(book)">
-        <img v-if="bookCoverPath(book)" :src="bookCoverPath(book)" :alt="bookTitle(book)" loading="lazy" />
-        <div v-else>No cover</div>
+        <div class="cover-frame">
+          <img v-if="bookCoverPath(book)" :src="bookCoverPath(book)" :alt="bookTitle(book)" loading="lazy" />
+          <span v-else>No cover</span>
+        </div>
         <h2>{{ bookTitle(book) }}</h2>
         <p v-if="bookAuthor(book)">{{ bookAuthor(book) }}</p>
       </article>
@@ -79,21 +81,38 @@ async function loadBooks(kind?: LibraryItemKind) {
 <style scoped>
 section[aria-label='Book covers'] {
   display: grid;
-  gap: 1rem;
-  grid-template-columns: repeat(auto-fill, minmax(8rem, 1fr));
+  gap: 1.25rem;
+  grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
 }
 
 article {
   display: grid;
   gap: 0.5rem;
+  justify-items: center;
+  text-align: center;
 }
 
-img,
-article > div {
+.cover-frame {
   aspect-ratio: 2 / 3;
   background: #eee;
+  width: 100%;
+  max-width: 10rem;
+  overflow: hidden;
+}
+
+.cover-frame img {
+  display: block;
+  height: 100%;
   object-fit: cover;
   width: 100%;
+}
+
+.cover-frame span {
+  align-items: center;
+  display: flex;
+  height: 100%;
+  justify-content: center;
+  padding: 0.75rem;
 }
 
 h2,

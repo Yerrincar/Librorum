@@ -56,7 +56,7 @@ func ParseLimits(r *http.Request) (int32, int32) {
 	}
 	limit, err := strconv.Atoi(r.URL.Query().Get("limit"))
 	if err != nil || limit < 1 {
-		limit = 10
+		limit = 50
 	}
 
 	offset := (page - 1) * limit
