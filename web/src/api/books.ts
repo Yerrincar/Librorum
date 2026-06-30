@@ -26,15 +26,53 @@ export type ImportExcelBooksResponse = {
   skipped: string[]
 }
 
+export type UpdateLibraryItemRequest = {
+  id: number
+  title: string
+  author: string
+  rating: string
+  cover_path: string
+  read_at: string
+  description: string
+  language: string
+  genres: string
+  ownership_status: string
+  reading_status: string
+  current_chapter: string
+  total_chapters: string
+  notes: string
+  cover_file?: File
+}
+
 export type LibraryItemResponse = {
   id?: number
   title?: string
   author?: string
   kind?: string
+  description?: string
+  genres?: string[] | null
+  language?: string
+  rating?: number | null
+  ownership_status?: string
+  reading_status?: string
+  read_at?: string | null
+  current_chapter?: number | null
+  total_chapters?: number | null
+  notes?: string
   cover_path?: string
   Title?: string
   Author?: string
   Kind?: string
+  Description?: string
+  Genres?: string[] | null
+  Language?: string
+  Rating?: number | null
+  Ownership_status?: string
+  Reading_status?: string
+  Read_at?: string | null
+  Current_chapter?: number | null
+  Total_chapters?: number | null
+  Notes?: string
   Cover_path?: string
 }
 
@@ -62,6 +100,8 @@ type ApiErrorResponse = {
   error?: string
   message?: string
 }
+
+const monthYearFormatter = new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' })
 
 export async function importEpubBook(payload: ImportBookRequest): Promise<LibraryItemResponse> {
   const form = bookFormData(payload)
@@ -204,12 +244,84 @@ export async function fetchBooks(kind?: LibraryItemKind): Promise<LibraryItemRes
   return response.json()
 }
 
+export async function updateLibraryItem(payload: UpdateLibraryItemRequest): Promise<LibraryItemResponse> {
+  const form = new FormData()
+  form.append('title', payload.title.trim())
+  form.append('author', payload.author.trim())
+  form.append('rating', payload.rating.trim())
+  form.append('cover_path', payload.cover_path.trim())
+  form.append('description', payload.description.trim())
+  form.append('language', payload.language.trim())
+  form.append('genres', payload.genres.trim())
+  form.append('ownership_status', payload.ownership_status)
+  form.append('reading_status', payload.reading_status)
+  form.append('current_chapter', payload.current_chapter.trim())
+  form.append('total_chapters', payload.total_chapters.trim())
+  form.append('notes', payload.notes.trim())
+  if (payload.read_at.trim() !== '') {
+    form.append('read_at', new Date(payload.read_at).toISOString())
+  }
+  if (payload.cover_file) {
+    form.append('file', payload.cover_file)
+  }
+
+  const response = await fetch(`/books/library-items/${payload.id}`, {
+    method: 'PUT',
+    credentials: 'include',
+    body: form,
+  })
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, 'Book update failed'))
+  }
+
+  return response.json()
+}
+
 export function bookTitle(book: LibraryItemResponse): string {
   return book.title ?? book.Title ?? 'Untitled'
 }
 
 export function bookAuthor(book: LibraryItemResponse): string {
   return book.author ?? book.Author ?? ''
+}
+
+export function bookLanguage(book: LibraryItemResponse): string {
+  return book.language ?? book.Language ?? ''
+}
+
+export function bookDescription(book: LibraryItemResponse): string {
+  return book.description ?? book.Description ?? ''
+}
+
+export function bookGenres(book: LibraryItemResponse): string {
+  return (book.genres ?? book.Genres ?? []).filter(Boolean).join(', ')
+}
+
+export function bookNotes(book: LibraryItemResponse): string {
+  return book.notes ?? book.Notes ?? ''
+}
+
+export function bookOwnershipStatus(book: LibraryItemResponse): string {
+  return book.ownership_status ?? book.Ownership_status ?? ''
+}
+
+export function bookReadingStatus(book: LibraryItemResponse): string {
+  return book.reading_status ?? book.Reading_status ?? 'unread'
+}
+
+export function bookCurrentChapter(book: LibraryItemResponse): string {
+  const currentChapter = book.current_chapter ?? book.Current_chapter
+  return typeof currentChapter === 'number' ? String(currentChapter) : ''
+}
+
+export function bookTotalChapters(book: LibraryItemResponse): string {
+  const totalChapters = book.total_chapters ?? book.Total_chapters
+  return typeof totalChapters === 'number' ? String(totalChapters) : ''
+}
+
+export function rawBookCoverPath(book: LibraryItemResponse): string {
+  return book.cover_path ?? book.Cover_path ?? ''
 }
 
 export function bookCoverPath(book: LibraryItemResponse): string {
@@ -233,6 +345,36 @@ export function bookCoverPath(book: LibraryItemResponse): string {
 
   const filename = normalized.split('/').pop()
   return filename ? `/covers/${encodeURIComponent(filename)}` : ''
+}
+
+export function bookRating(book: LibraryItemResponse): string {
+  const rating = book.rating ?? book.Rating
+  return typeof rating === 'number' ? String(rating) : ''
+}
+
+export function bookReadMonthYear(book: LibraryItemResponse): string {
+  const readAt = book.read_at ?? book.Read_at
+  if (!readAt) {
+    return ''
+  }
+
+  const readDate = new Date(readAt)
+  return Number.isNaN(readDate.getTime()) ? '' : monthYearFormatter.format(readDate)
+}
+
+export function bookReadAtInput(book: LibraryItemResponse): string {
+  const readAt = book.read_at ?? book.Read_at
+  if (!readAt) {
+    return ''
+  }
+
+  const readDate = new Date(readAt)
+  if (Number.isNaN(readDate.getTime())) {
+    return ''
+  }
+
+  const localDate = new Date(readDate.getTime() - readDate.getTimezoneOffset() * 60_000)
+  return localDate.toISOString().slice(0, 16)
 }
 
 async function readErrorMessage(response: Response, fallback: string): Promise<string> {

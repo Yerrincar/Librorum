@@ -282,3 +282,71 @@ func (q *Queries) SelectUserByUsername(ctx context.Context, username string) (Us
 	)
 	return i, err
 }
+
+const updateLibraryItems = `-- name: UpdateLibraryItems :one
+UPDATE library_items SET title = $3, author = $4, rating = $5, cover_path = COALESCE(NULLIF($6, ''), cover_path), read_at = $7, description = $8,
+language = $9, genres = $10, ownership_status = $11, reading_status=$12, current_chapter = $13, total_chapters = $14, notes = $15,  updated_at = now() WHERE id = $1 AND user_id = $2 RETURNING id, user_id, kind, title, author, description, language, publication_year, genres, rating, ownership_status, reading_status, publication_status, current_chapter, total_chapters, read_at, cover_path, notes, search_vector, created_at, updated_at
+`
+
+type UpdateLibraryItemsParams struct {
+	ID              int64              `json:"id"`
+	UserID          int64              `json:"user_id"`
+	Title           string             `json:"title"`
+	Author          string             `json:"author"`
+	Rating          pgtype.Numeric     `json:"rating"`
+	CoverPath       string             `json:"cover_path"`
+	ReadAt          pgtype.Timestamptz `json:"read_at"`
+	Description     string             `json:"description"`
+	Language        string             `json:"language"`
+	Genres          []string           `json:"genres"`
+	OwnershipStatus string             `json:"ownership_status"`
+	ReadingStatus   string             `json:"reading_status"`
+	CurrentChapter  pgtype.Numeric     `json:"current_chapter"`
+	TotalChapters   pgtype.Numeric     `json:"total_chapters"`
+	Notes           string             `json:"notes"`
+}
+
+func (q *Queries) UpdateLibraryItems(ctx context.Context, arg UpdateLibraryItemsParams) (LibraryItem, error) {
+	row := q.db.QueryRow(ctx, updateLibraryItems,
+		arg.ID,
+		arg.UserID,
+		arg.Title,
+		arg.Author,
+		arg.Rating,
+		arg.CoverPath,
+		arg.ReadAt,
+		arg.Description,
+		arg.Language,
+		arg.Genres,
+		arg.OwnershipStatus,
+		arg.ReadingStatus,
+		arg.CurrentChapter,
+		arg.TotalChapters,
+		arg.Notes,
+	)
+	var i LibraryItem
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Kind,
+		&i.Title,
+		&i.Author,
+		&i.Description,
+		&i.Language,
+		&i.PublicationYear,
+		&i.Genres,
+		&i.Rating,
+		&i.OwnershipStatus,
+		&i.ReadingStatus,
+		&i.PublicationStatus,
+		&i.CurrentChapter,
+		&i.TotalChapters,
+		&i.ReadAt,
+		&i.CoverPath,
+		&i.Notes,
+		&i.SearchVector,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
