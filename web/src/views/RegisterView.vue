@@ -47,8 +47,6 @@ function hasValue(value: string) {
 
     <form autocomplete="on" @submit.prevent="submitRegister">
 
-      <h1>Sign Up</h1>
-
       <div class="form__group"
       :class="{ filled: hasValue(form.username) }">
         <input
@@ -136,6 +134,7 @@ function hasValue(value: string) {
 
 
 <style scoped>
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap');
 .register-page {
   min-height: 100vh;
   width: 100%;
@@ -153,7 +152,6 @@ function hasValue(value: string) {
 }
 
 
-/* Whole form container */
 form {
   display: grid;
   gap: 1.2rem;
@@ -163,27 +161,15 @@ form {
   margin-left: 40px;
 }
 
-
-/* Title */
-h1 {
-  margin: 0 0 0.2rem 0;
-
-  color: #140b01;
-  font-size: 2rem;
-}
-
-
-/* Each input block */
 .form__group {
   position: relative;
   padding-top: 20px;
 }
 
 
-/* Input line */
 .form__field {
-  font-family: inherit;
-
+  font-family: 'Cinzel', serif;
+  font-size: 1.2rem;
   width: 100%;
 
   border: none;
@@ -191,7 +177,6 @@ h1 {
 
   outline: none;
 
-  font-size: 17px;
   color: #140b01;
 
   padding: 7px 0;
@@ -202,29 +187,26 @@ h1 {
 }
 
 
-/* Hide placeholder text */
 .form__field::placeholder {
   color: transparent;
 }
 
 
-/* Floating label */
 .form__label {
   position: absolute;
 
   top: 20px;
   left: 0;
 
-  font-size: 17px;
+  font-family: 'Cinzel', serif;
+  font-size: 1.2rem;
+
   color: #140b01;
 
   pointer-events: none;
-
   transition: 0.2s;
 }
 
-
-/* When typing/focused */
 .form__field:focus {
   border-width: 3px;
 
@@ -246,7 +228,6 @@ h1 {
 }
 
 
-/* When empty */
 .form__field:placeholder-shown ~ .form__label {
   top: 20px;
 }
@@ -257,7 +238,6 @@ h1 {
   font-weight: 700;
 }
 
-/* Button */
 button {
   width: 120px;
 
@@ -277,6 +257,10 @@ button {
   color: white;
 
   cursor: pointer;
+
+  font-family: 'Cinzel', serif;
+  font-size: 0.9rem;
+  letter-spacing: 0.8px;
 }
 
 
