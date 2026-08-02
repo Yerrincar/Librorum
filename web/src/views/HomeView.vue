@@ -52,7 +52,7 @@ async function submitLogout() {
         <li><RouterLink to="/books">Books</RouterLink></li>
         <li v-if="user"><RouterLink to="/books/import">Import books</RouterLink></li>
         <li v-if="user"><RouterLink to="/books/import/excel">Excel Import</RouterLink></li>
-        <li><RouterLink to="/register">Register</RouterLink></li>
+        <li><RouterLink to="/register">Sign Up</RouterLink></li>
         <li><RouterLink to="/login">Login</RouterLink></li>
       </ul>
     </nav>
