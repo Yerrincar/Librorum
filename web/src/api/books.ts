@@ -78,6 +78,15 @@ export type LibraryItemResponse = {
 
 export type LibraryItemKind = 'book' | 'manga' | 'manhwa'
 
+export type FetchBooksOptions = {
+  kind?: LibraryItemKind
+  page?: number
+  limit?: number
+  readingYear?: string
+  sortBy?: 'read_at_asc' | 'read_at_desc' | 'title_asc' | 'title_desc'
+  sortTitle?: 'asc' | 'desc'
+}
+
 export type MetadataSource = 'calibre' | 'openlibrary' | 'google_books'
 
 export type BookMetadataCandidateResponse = {
@@ -100,6 +109,11 @@ type ApiErrorResponse = {
   error?: string
   message?: string
 }
+
+type ReadingYearsResponse =
+  | Array<number | string>
+  | { years?: Array<number | string>; reading_years?: Array<number | string>; readingYears?: Array<number | string> }
+  | null
 
 const monthYearFormatter = new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' })
 
@@ -226,10 +240,23 @@ function bookFormData(payload: Omit<ImportBookRequest, 'file'>): FormData {
   return form
 }
 
-export async function fetchBooks(kind?: LibraryItemKind): Promise<LibraryItemResponse[]> {
+export async function fetchBooks(options: FetchBooksOptions = {}): Promise<LibraryItemResponse[]> {
   const params = new URLSearchParams()
-  if (kind) {
-    params.set('kind', kind)
+  if (options.kind) {
+    params.set('kind', options.kind)
+  }
+  params.set('page', String(options.page ?? 1))
+  if (options.limit) {
+    params.set('limit', String(options.limit))
+  }
+  if (options.readingYear?.trim()) {
+    params.set('reading_year', options.readingYear.trim())
+  }
+  if (options.sortBy) {
+    params.set('sort_by', options.sortBy)
+  }
+  if (options.sortTitle) {
+    params.set('sort_title', options.sortTitle)
   }
   const query = params.toString()
   const response = await fetch(`/books/library-items${query ? `?${query}` : ''}`, {
@@ -242,6 +269,26 @@ export async function fetchBooks(kind?: LibraryItemKind): Promise<LibraryItemRes
   }
 
   return response.json()
+}
+
+export async function fetchReadingYears(kind?: LibraryItemKind): Promise<number[]> {
+  const params = new URLSearchParams()
+  if (kind) {
+    params.set('kind', kind)
+  }
+  const query = params.toString()
+  const response = await fetch(`/books/read_years${query ? `?${query}` : ''}`, {
+    method: 'POST',
+    credentials: 'include',
+  })
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, 'Fetch reading years failed'))
+  }
+
+  const body = (await response.json()) as ReadingYearsResponse
+  const years = Array.isArray(body) ? body : (body?.years ?? body?.reading_years ?? body?.readingYears ?? [])
+  return years.map(Number).filter(Number.isFinite)
 }
 
 export async function updateLibraryItem(payload: UpdateLibraryItemRequest): Promise<LibraryItemResponse> {

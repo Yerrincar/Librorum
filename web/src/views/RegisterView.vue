@@ -50,14 +50,16 @@ function hasValue(value: string) {
       <div class="form__group"
       :class="{ filled: hasValue(form.username) }">
         <input
+          id="register-username"
           v-model.trim="form.username"
           class="form__field"
           name="username"
           autocomplete="username"
+          spellcheck="false"
           placeholder=" "
           required
         />
-        <label class="form__label">
+        <label class="form__label" for="register-username">
           Username
         </label>
       </div>
@@ -66,15 +68,17 @@ function hasValue(value: string) {
       <div class="form__group"
       :class="{ filled: hasValue(form.email) }">
         <input
+          id="register-email"
           v-model.trim="form.email"
           class="form__field"
           name="email"
           type="email"
           autocomplete="email"
+          spellcheck="false"
           placeholder=" "
           required
         />
-        <label class="form__label">
+        <label class="form__label" for="register-email">
           Email
         </label>
       </div>
@@ -83,6 +87,7 @@ function hasValue(value: string) {
       <div class="form__group"
       :class="{ filled: hasValue(form.display_name) }">
         <input
+          id="register-display-name"
           v-model.trim="form.display_name"
           class="form__field"
           name="display_name"
@@ -90,7 +95,7 @@ function hasValue(value: string) {
           placeholder=" "
           required
         />
-        <label class="form__label">
+        <label class="form__label" for="register-display-name">
           Display name
         </label>
       </div>
@@ -99,6 +104,7 @@ function hasValue(value: string) {
       <div class="form__group"
       :class="{ filled: hasValue(form.password) }">
         <input
+          id="register-password"
           v-model="form.password"
           class="form__field"
           name="password"
@@ -108,14 +114,14 @@ function hasValue(value: string) {
           placeholder=" "
           required
         />
-        <label class="form__label">
+        <label class="form__label" for="register-password">
           Password
         </label>
       </div>
 
 
       <button type="submit" :disabled="loading">
-        {{ loading ? 'Signing up...' : 'Sign Up' }}
+        {{ loading ? 'Signing up…' : 'Sign Up' }}
       </button>
 
 
@@ -134,7 +140,6 @@ function hasValue(value: string) {
 
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap');
 .register-page {
   min-height: 100vh;
   width: 100%;
@@ -148,7 +153,7 @@ function hasValue(value: string) {
   background-position: center;
   background-repeat: no-repeat;
 
-  overflow: hidden;
+  overflow-x: hidden;
 }
 
 
@@ -175,7 +180,8 @@ form {
   border: none;
   border-bottom: 2px solid #140b01;
 
-  outline: none;
+  outline: 2px solid transparent;
+  outline-offset: 4px;
 
   color: #140b01;
 
@@ -204,7 +210,7 @@ form {
   color: #140b01;
 
   pointer-events: none;
-  transition: 0.2s;
+  transition: color 0.2s, font-weight 0.2s, top 0.2s;
 }
 
 .form__field:focus {
@@ -217,6 +223,11 @@ form {
   );
 
   border-image-slice: 1;
+}
+
+.form__field:focus-visible {
+  outline: 2px solid rgba(255, 140, 0, 0.45);
+  outline-offset: 4px;
 }
 
 
@@ -267,6 +278,12 @@ button {
 button:disabled {
   cursor: wait;
   opacity: 0.7;
+}
+
+
+button:focus-visible {
+  outline: 2px solid #ff8c00;
+  outline-offset: 4px;
 }
 
 

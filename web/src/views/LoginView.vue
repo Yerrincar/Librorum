@@ -12,6 +12,7 @@ const form = reactive({
 
 const loading = ref(false)
 const errorMessage = ref('')
+const successMessage = ref('')
 
 async function submitLogin() {
   loading.value = true
@@ -41,14 +42,16 @@ function hasValue(value: string) {
       <div class="form__group"
       :class="{ filled: hasValue(form.username) }">
         <input
+          id="login-username"
           v-model.trim="form.username"
           class="form__field"
           name="username"
           autocomplete="username"
+          spellcheck="false"
           placeholder=" "
           required
         />
-        <label class="form__label">
+        <label class="form__label" for="login-username">
           Username
         </label>
       </div>
@@ -56,23 +59,24 @@ function hasValue(value: string) {
       <div class="form__group"
       :class="{ filled: hasValue(form.password) }">
         <input
+          id="login-password"
           v-model="form.password"
           class="form__field"
           name="password"
           type="password"
-          autocomplete="new-password"
+          autocomplete="current-password"
           minlength="8"
           placeholder=" "
           required
         />
-        <label class="form__label">
+        <label class="form__label" for="login-password">
           Password
         </label>
       </div>
 
 
       <button type="submit" :disabled="loading">
-        {{ loading ? 'Loging...' : 'Login' }}
+        {{ loading ? 'Signing in…' : 'Login' }}
       </button>
 
 
@@ -104,7 +108,7 @@ function hasValue(value: string) {
   background-position: center;
   background-repeat: no-repeat;
 
-  overflow: hidden;
+  overflow-x: hidden;
 }
 
 
@@ -132,7 +136,8 @@ form {
   border: none;
   border-bottom: 2px solid #140b01;
 
-  outline: none;
+  outline: 2px solid transparent;
+  outline-offset: 4px;
 
   color: #140b01;
 
@@ -160,7 +165,7 @@ form {
 
   pointer-events: none;
 
-  transition: 0.2s;
+  transition: color 0.2s, font-weight 0.2s, top 0.2s;
 }
 
 
@@ -174,6 +179,11 @@ form {
   );
 
   border-image-slice: 1;
+}
+
+.form__field:focus-visible {
+  outline: 2px solid rgba(255, 140, 0, 0.45);
+  outline-offset: 4px;
 }
 
 
@@ -227,6 +237,12 @@ button:disabled {
 }
 
 
+button:focus-visible {
+  outline: 2px solid #ff8c00;
+  outline-offset: 4px;
+}
+
+
 .error {
   color: #b00020;
 }
@@ -236,4 +252,3 @@ button:disabled {
   color: #176b36;
 }
 </style>
-}

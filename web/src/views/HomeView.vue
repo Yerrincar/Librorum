@@ -149,7 +149,7 @@ async function submitLogout() {
   background-position: center;
   background-repeat: no-repeat;
 
-  overflow: hidden;
+  overflow-x: hidden;
 }
 
 
@@ -211,6 +211,8 @@ async function submitLogout() {
 
 .links a,
 .links button {
+  display: inline-block;
+
   background: linear-gradient(
     180deg,
     #ffe9a3,
@@ -231,7 +233,7 @@ async function submitLogout() {
 
   filter: brightness(1.4);
 
-  transition: 0.3s ease;
+  transition: filter 0.3s ease, transform 0.3s ease;
 }
 
 
@@ -253,6 +255,9 @@ async function submitLogout() {
   transform: translateY(-3px);
   filter: brightness(1.3);
   outline: none;
+  text-shadow:
+    2px 3px 5px rgba(0,0,0,0.95),
+    0 0 14px rgba(212,175,55,0.95);
 }
 
 

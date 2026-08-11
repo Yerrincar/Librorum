@@ -117,17 +117,37 @@ func (q *Queries) InsertUser(ctx context.Context, arg InsertUserParams) (User, e
 }
 
 const selectBooksByUser = `-- name: SelectBooksByUser :many
-SELECT id, user_id, kind, title, author, description, language, publication_year, genres, rating, ownership_status, reading_status, publication_status, current_chapter, total_chapters, read_at, cover_path, notes, search_vector, created_at, updated_at FROM library_items WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3
+SELECT id, user_id, kind, title, author, description, language, publication_year, genres, rating, ownership_status, reading_status, publication_status, current_chapter, total_chapters, read_at, cover_path, notes, search_vector, created_at, updated_at FROM library_items 
+WHERE 
+    user_id = $1 AND ($4::int IS NULL OR EXTRACT(YEAR FROM read_at) = $4::int)
+ORDER BY 
+CASE WHEN $5::text = 'read_at_asc' THEN read_at END ASC,
+CASE WHEN $5::text = 'read_at_desc' THEN read_at END DESC,
+CASE WHEN $5::text = 'title_asc' THEN title END ASC,
+CASE WHEN $5::text = 'title_desc' THEN title END DESC,
+CASE WHEN $6::text = 'asc' THEN title END ASC,
+CASE WHEN $6::text = 'desc' THEN title END DESC,
+id ASC LIMIT $2 OFFSET $3
 `
 
 type SelectBooksByUserParams struct {
-	UserID int64 `json:"user_id"`
-	Limit  int32 `json:"limit"`
-	Offset int32 `json:"offset"`
+	UserID      int64  `json:"user_id"`
+	Limit       int32  `json:"limit"`
+	Offset      int32  `json:"offset"`
+	ReadingYear *int32 `json:"reading_year"`
+	SortBy      string `json:"sort_by"`
+	SortTitle   string `json:"sort_title"`
 }
 
 func (q *Queries) SelectBooksByUser(ctx context.Context, arg SelectBooksByUserParams) ([]LibraryItem, error) {
-	rows, err := q.db.Query(ctx, selectBooksByUser, arg.UserID, arg.Limit, arg.Offset)
+	rows, err := q.db.Query(ctx, selectBooksByUser,
+		arg.UserID,
+		arg.Limit,
+		arg.Offset,
+		arg.ReadingYear,
+		arg.SortBy,
+		arg.SortTitle,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -169,14 +189,27 @@ func (q *Queries) SelectBooksByUser(ctx context.Context, arg SelectBooksByUserPa
 }
 
 const selectBooksByUserAndKind = `-- name: SelectBooksByUserAndKind :many
-SELECT id, user_id, kind, title, author, description, language, publication_year, genres, rating, ownership_status, reading_status, publication_status, current_chapter, total_chapters, read_at, cover_path, notes, search_vector, created_at, updated_at FROM library_items WHERE user_id = $1 AND kind = $2 ORDER BY created_at DESC LIMIT $3 OFFSET $4
+SELECT id, user_id, kind, title, author, description, language, publication_year, genres, rating, ownership_status, reading_status, publication_status, current_chapter, total_chapters, read_at, cover_path, notes, search_vector, created_at, updated_at FROM library_items 
+WHERE 
+    user_id = $1 AND kind = $2 AND ($5::int IS NULL OR EXTRACT(YEAR FROM read_at) = $5::int)
+ORDER BY 
+CASE WHEN $6::text = 'read_at_asc' THEN read_at END ASC,
+CASE WHEN $6::text = 'read_at_desc' THEN read_at END DESC,
+CASE WHEN $6::text = 'title_asc' THEN title END ASC,
+CASE WHEN $6::text = 'title_desc' THEN title END DESC,
+CASE WHEN $7::text = 'asc' THEN title END ASC,
+CASE WHEN $7::text = 'desc' THEN title END DESC,
+id ASC LIMIT $3 OFFSET $4
 `
 
 type SelectBooksByUserAndKindParams struct {
-	UserID int64  `json:"user_id"`
-	Kind   string `json:"kind"`
-	Limit  int32  `json:"limit"`
-	Offset int32  `json:"offset"`
+	UserID      int64  `json:"user_id"`
+	Kind        string `json:"kind"`
+	Limit       int32  `json:"limit"`
+	Offset      int32  `json:"offset"`
+	ReadingYear *int32 `json:"reading_year"`
+	SortBy      string `json:"sort_by"`
+	SortTitle   string `json:"sort_title"`
 }
 
 func (q *Queries) SelectBooksByUserAndKind(ctx context.Context, arg SelectBooksByUserAndKindParams) ([]LibraryItem, error) {
@@ -185,6 +218,9 @@ func (q *Queries) SelectBooksByUserAndKind(ctx context.Context, arg SelectBooksB
 		arg.Kind,
 		arg.Limit,
 		arg.Offset,
+		arg.ReadingYear,
+		arg.SortBy,
+		arg.SortTitle,
 	)
 	if err != nil {
 		return nil, err
@@ -219,6 +255,68 @@ func (q *Queries) SelectBooksByUserAndKind(ctx context.Context, arg SelectBooksB
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const selectReadYearByUsername = `-- name: SelectReadYearByUsername :many
+SELECT DISTINCT EXTRACT(YEAR FROM read_at)::int AS reading_year
+FROM library_items
+WHERE user_id = $1
+  AND read_at IS NOT NULL
+ORDER BY reading_year DESC
+`
+
+func (q *Queries) SelectReadYearByUsername(ctx context.Context, userID int64) ([]int32, error) {
+	rows, err := q.db.Query(ctx, selectReadYearByUsername, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int32
+	for rows.Next() {
+		var reading_year int32
+		if err := rows.Scan(&reading_year); err != nil {
+			return nil, err
+		}
+		items = append(items, reading_year)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const selectReadYearByUsernameAndKind = `-- name: SelectReadYearByUsernameAndKind :many
+SELECT DISTINCT EXTRACT(YEAR FROM read_at)::int AS reading_year
+FROM library_items
+WHERE user_id = $1 
+  AND kind = $2
+  AND read_at IS NOT NULL
+ORDER BY reading_year DESC
+`
+
+type SelectReadYearByUsernameAndKindParams struct {
+	UserID int64  `json:"user_id"`
+	Kind   string `json:"kind"`
+}
+
+func (q *Queries) SelectReadYearByUsernameAndKind(ctx context.Context, arg SelectReadYearByUsernameAndKindParams) ([]int32, error) {
+	rows, err := q.db.Query(ctx, selectReadYearByUsernameAndKind, arg.UserID, arg.Kind)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int32
+	for rows.Next() {
+		var reading_year int32
+		if err := rows.Scan(&reading_year); err != nil {
+			return nil, err
+		}
+		items = append(items, reading_year)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -284,13 +382,26 @@ func (q *Queries) SelectUserByUsername(ctx context.Context, username string) (Us
 }
 
 const updateLibraryItems = `-- name: UpdateLibraryItems :one
-UPDATE library_items SET title = $3, author = $4, rating = $5, cover_path = COALESCE(NULLIF($6, ''), cover_path), read_at = $7, description = $8,
-language = $9, genres = $10, ownership_status = $11, reading_status=$12, current_chapter = $13, total_chapters = $14, notes = $15,  updated_at = now() WHERE id = $1 AND user_id = $2 RETURNING id, user_id, kind, title, author, description, language, publication_year, genres, rating, ownership_status, reading_status, publication_status, current_chapter, total_chapters, read_at, cover_path, notes, search_vector, created_at, updated_at
+UPDATE library_items SET 
+    title = $1, 
+    author = $2, 
+    rating = $3, 
+    cover_path = COALESCE(NULLIF($4::text, ''), cover_path), 
+    read_at = $5, 
+    description = $6,
+    language = $7, 
+    genres = $8, 
+    ownership_status = $9, 
+    reading_status = $10, 
+    current_chapter = $11, 
+    total_chapters = $12, 
+    notes = $13, 
+    updated_at = now() 
+WHERE id = $14 AND user_id = $15 
+RETURNING id, user_id, kind, title, author, description, language, publication_year, genres, rating, ownership_status, reading_status, publication_status, current_chapter, total_chapters, read_at, cover_path, notes, search_vector, created_at, updated_at
 `
 
 type UpdateLibraryItemsParams struct {
-	ID              int64              `json:"id"`
-	UserID          int64              `json:"user_id"`
 	Title           string             `json:"title"`
 	Author          string             `json:"author"`
 	Rating          pgtype.Numeric     `json:"rating"`
@@ -304,12 +415,12 @@ type UpdateLibraryItemsParams struct {
 	CurrentChapter  pgtype.Numeric     `json:"current_chapter"`
 	TotalChapters   pgtype.Numeric     `json:"total_chapters"`
 	Notes           string             `json:"notes"`
+	ID              int64              `json:"id"`
+	UserID          int64              `json:"user_id"`
 }
 
 func (q *Queries) UpdateLibraryItems(ctx context.Context, arg UpdateLibraryItemsParams) (LibraryItem, error) {
 	row := q.db.QueryRow(ctx, updateLibraryItems,
-		arg.ID,
-		arg.UserID,
 		arg.Title,
 		arg.Author,
 		arg.Rating,
@@ -323,6 +434,8 @@ func (q *Queries) UpdateLibraryItems(ctx context.Context, arg UpdateLibraryItems
 		arg.CurrentChapter,
 		arg.TotalChapters,
 		arg.Notes,
+		arg.ID,
+		arg.UserID,
 	)
 	var i LibraryItem
 	err := row.Scan(

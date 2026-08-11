@@ -88,6 +88,7 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("POST /books/import/epub", a.BookHandler.InsertEpubBooks)
 	mux.HandleFunc("POST /books/import/openlibrary", a.BookHandler.InsertOpenLibraryBooks)
 	mux.HandleFunc("POST /books/import/excelImport", a.BookHandler.BulkExcelImport)
+	mux.HandleFunc("POST /books/read_years", a.BookHandler.DisplayReadingYears)
 	//PUT
 	mux.HandleFunc("PUT /books/library-items/{id}", a.BookHandler.UpdateFields)
 
