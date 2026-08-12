@@ -87,8 +87,9 @@ func ExtractEPUB(srcPath string) (*Package, error) {
 }
 
 func NormalizeGenres(genres []string) []string {
+	defaultMessage := make([]string, 1, 1)
 	if len(genres) == 0 {
-		return nil
+		return append(defaultMessage, "No Genres found in the File")
 	}
 
 	out := make([]string, 0, len(genres))

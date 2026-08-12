@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
+import FantasySelect from '@/components/FantasySelect.vue'
 import {
   bookAuthor,
   bookCoverPath,
@@ -65,8 +66,19 @@ const sections: Array<{ label: string; kind?: LibraryItemKind }> = [
   { label: 'Manhwa', kind: 'manhwa' },
 ]
 
+function readingYearOptions() {
+  return [
+    { label: 'All', value: '' },
+    ...readingYears.value.map((year) => ({ label: String(year), value: String(year) })),
+  ]
+}
+
 function activeSectionLabel() {
   return sections.find((section) => section.kind === activeKind.value)?.label ?? 'Library'
+}
+
+function activeSectionIsWorkInProgress() {
+  return activeKind.value === 'manga' || activeKind.value === 'manhwa'
 }
 
 async function hasBooksAfterPage(kind: LibraryItemKind | undefined, page: number, currentBooks: LibraryItemResponse[]) {
@@ -263,18 +275,14 @@ function editBookForm(book: LibraryItemResponse): EditBookForm {
       <header class="content-header">
         <div class="title-tools">
           <h1 class="page-title">{{ activeSectionLabel() }}</h1>
-          <label class="year-filter">
-            <span>Read year</span>
-            <select
-              v-model.trim="readingYearFilter"
-              name="reading_year"
-              autocomplete="off"
-              @change="applyReadingYearFilter"
-            >
-              <option value="">All</option>
-              <option v-for="year in readingYears" :key="year" :value="String(year)">{{ year }}</option>
-            </select>
-          </label>
+          <FantasySelect
+            id="reading-year-filter"
+            v-model="readingYearFilter"
+            label="Read year"
+            name="reading_year"
+            :options="readingYearOptions()"
+            @change="applyReadingYearFilter"
+          />
         </div>
 
         <nav aria-label="Library view" class="view-nav">
@@ -303,6 +311,11 @@ function editBookForm(book: LibraryItemResponse): EditBookForm {
       <p v-if="loading" class="status-message">Loading books…</p>
       <p v-else-if="errorMessage" role="alert" class="status-message error">{{ errorMessage }}</p>
       <p v-if="readingYearsErrorMessage" role="alert" class="status-message error">{{ readingYearsErrorMessage }}</p>
+
+      <section v-else-if="activeSectionIsWorkInProgress()" class="work-section" aria-label="Work in progress">
+        <p>Work in progress</p>
+        <span>{{ activeSectionLabel() }} will be added in a future version.</span>
+      </section>
 
       <section v-else-if="books.length === 0" class="empty-section">
         <p class="status-message">No books found.</p>
@@ -395,7 +408,6 @@ function editBookForm(book: LibraryItemResponse): EditBookForm {
           </label>
         </div>
         <div class="details-body">
-          <h2 v-if="!editingBook" id="book-details-title">{{ bookTitle(selectedBook) }}</h2>
           <form v-if="editingBook" class="edit-form" @submit.prevent="confirmBookEdit">
             <h2 id="book-details-title">Edit book</h2>
             <p v-if="updateErrorMessage" role="alert">{{ updateErrorMessage }}</p>
@@ -434,30 +446,39 @@ function editBookForm(book: LibraryItemResponse): EditBookForm {
               <input v-model="editForm.read_at" name="read_at" type="datetime-local" />
             </label>
           </form>
-          <dl v-else>
-            <div v-if="bookRating(selectedBook)">
-              <dt>Rating</dt>
-              <dd>{{ bookRating(selectedBook) }}</dd>
+          <dl v-else class="details-fields">
+            <div>
+              <dt>Title</dt>
+              <dd id="book-details-title">{{ bookTitle(selectedBook) }}</dd>
             </div>
-            <div v-if="bookDescription(selectedBook)">
-              <dt>Description</dt>
-              <dd class="description">{{ bookDescription(selectedBook) }}</dd>
-            </div>
-            <div v-if="bookGenres(selectedBook)">
-              <dt>Genres</dt>
-              <dd>{{ bookGenres(selectedBook) }}</dd>
-            </div>
-            <div v-if="bookAuthor(selectedBook)">
+            <div>
               <dt>Author</dt>
-              <dd>{{ bookAuthor(selectedBook) }}</dd>
+              <dd>{{ bookAuthor(selectedBook) || 'Unknown' }}</dd>
             </div>
-            <div v-if="bookOwnershipStatus(selectedBook)">
-              <dt>Ownership status</dt>
-              <dd>{{ bookOwnershipStatus(selectedBook) }}</dd>
+            <div>
+              <dt>Rating</dt>
+              <dd>{{ bookRating(selectedBook) ? `${bookRating(selectedBook)}/5` : 'Unrated' }}</dd>
             </div>
-            <div v-if="bookReadMonthYear(selectedBook)">
+            <div>
               <dt>Read at</dt>
-              <dd>{{ bookReadMonthYear(selectedBook) }}</dd>
+              <dd>{{ bookReadMonthYear(selectedBook) || bookReadingStatus(selectedBook) }}</dd>
+            </div>
+            <div>
+              <dt>Ownership status</dt>
+              <dd>{{ bookOwnershipStatus(selectedBook) || 'none' }}</dd>
+            </div>
+            <div>
+              <dt>Genres</dt>
+              <dd>{{ bookGenres(selectedBook) || 'No genres' }}</dd>
+            </div>
+            <div>
+              <dt>Description</dt>
+              <dd>
+                <details class="description-box">
+                  <summary>Open description</summary>
+                  <p>{{ bookDescription(selectedBook) || 'No description' }}</p>
+                </details>
+              </dd>
             </div>
           </dl>
         </div>
@@ -619,46 +640,6 @@ function editBookForm(book: LibraryItemResponse): EditBookForm {
   margin: 0;
   font-size: 3rem;
   letter-spacing: 4px;
-}
-
-.year-filter {
-  align-items: center;
-  display: flex;
-  gap: 0.6rem;
-}
-
-.year-filter span {
-  background: linear-gradient(
-    180deg,
-    #ffe9a3,
-    #d4af37 45%,
-    #8c5a18 75%,
-    #4b2805
-  );
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  filter: brightness(1.4);
-  font-family: 'Cinzel', serif;
-  font-size: 1rem;
-  letter-spacing: 2px;
-  text-shadow:
-    2px 3px 5px rgba(0,0,0,0.95),
-    0 0 10px rgba(212,175,55,0.75);
-}
-
-.year-filter select {
-  background: rgba(20, 11, 1, 0.55);
-  border: 1px solid rgba(212, 175, 55, 0.5);
-  color: #ffe9a3;
-  font-family: 'Cinzel', serif;
-  padding: 0.35rem 0.45rem;
-  width: 5.5rem;
-}
-
-.year-filter select:focus-visible {
-  outline: 2px solid rgba(212, 175, 55, 0.85);
-  outline-offset: 0.25rem;
 }
 
 .view-nav {
@@ -830,6 +811,46 @@ article {
   -webkit-background-clip: unset;
 }
 
+.work-section {
+  background: rgba(18, 10, 3, 0.62);
+  border: 1px solid rgba(212, 175, 55, 0.62);
+  display: grid;
+  gap: 0.75rem;
+  justify-items: start;
+  padding: 1.5rem;
+}
+
+.work-section p,
+.work-section span {
+  background: linear-gradient(
+    180deg,
+    #ffe9a3,
+    #d4af37 45%,
+    #8c5a18 75%,
+    #4b2805
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-family: 'Cinzel', serif;
+  margin: 0;
+  text-shadow:
+    2px 3px 5px rgba(0,0,0,0.95),
+    0 0 10px rgba(212,175,55,0.75);
+}
+
+.work-section p {
+  filter: brightness(1.45);
+  font-size: 2rem;
+  letter-spacing: 3px;
+}
+
+.work-section span {
+  filter: brightness(1.2);
+  font-size: 1.1rem;
+  letter-spacing: 1px;
+}
+
 .details-backdrop {
   position: fixed;
   inset: 0;
@@ -837,7 +858,8 @@ article {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(7px);
+  background: rgba(7, 5, 2, 0.28);
   padding: 1.5rem;
   box-sizing: border-box;
   overscroll-behavior: contain;
@@ -853,10 +875,11 @@ article {
   grid-template-columns: 12rem minmax(0, 1fr);
   gap: 2rem;
 
-  background: #ffffff;
-  color: #1a1a1a;
+  background: rgba(18, 10, 3, 0.88);
+  border: 1px solid rgba(212, 175, 55, 0.72);
+  color: #ffe9a3;
   padding: 2rem;
-  border-radius: 8px;
+  border-radius: 0;
   box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.6);
   overflow-y: auto;
 }
@@ -867,6 +890,29 @@ article {
   right: 1rem;
   display: flex;
   gap: 0.5rem;
+}
+
+.details-actions button {
+  background: linear-gradient(
+    180deg,
+    #ffe9a3,
+    #d4af37 45%,
+    #8c5a18 75%,
+    #4b2805
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  border: 1px solid rgba(212, 175, 55, 0.55);
+  border-radius: 0;
+  color: transparent;
+  cursor: pointer;
+  filter: brightness(1.35);
+  font-family: 'Cinzel', serif;
+  letter-spacing: 1px;
+  padding: 0.35rem 0.6rem;
+  text-shadow:
+    2px 3px 5px rgba(0,0,0,0.95),
+    0 0 10px rgba(212,175,55,0.75);
 }
 
 .details-body {
@@ -881,6 +927,155 @@ article {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+}
+
+.edit-form h2,
+.edit-form p {
+  background: linear-gradient(
+    180deg,
+    #ffe9a3,
+    #d4af37 45%,
+    #8c5a18 75%,
+    #4b2805
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-family: 'Cinzel', serif;
+  letter-spacing: 2px;
+  margin: 0;
+  text-shadow:
+    2px 3px 5px rgba(0,0,0,0.95),
+    0 0 10px rgba(212,175,55,0.75);
+}
+
+.edit-field {
+  color: #cfa34a;
+  font-family: 'Cinzel', serif;
+  letter-spacing: 2px;
+  text-shadow: 1px 2px 4px rgba(0,0,0,0.9);
+  text-transform: uppercase;
+}
+
+.edit-field input,
+.edit-field select,
+.edit-field textarea {
+  background: rgba(20, 11, 1, 0.82);
+  border: 1px solid rgba(212, 175, 55, 0.5);
+  border-radius: 0;
+  box-sizing: border-box;
+  color: #ffe9a3;
+  font-family: 'Cinzel', serif;
+  letter-spacing: 1px;
+  padding: 0.45rem 0.55rem;
+  text-shadow: 1px 2px 4px rgba(0,0,0,0.9);
+  width: 100%;
+}
+
+.edit-field input::placeholder,
+.edit-field textarea::placeholder {
+  color: rgba(255, 233, 163, 0.62);
+}
+
+.edit-field select option {
+  background: #140b01;
+  color: #ffe9a3;
+}
+
+.edit-field input[type='file'] {
+  color: #ffe9a3;
+}
+
+.edit-field input[type='file']::file-selector-button {
+  background: transparent;
+  border: 1px solid rgba(212, 175, 55, 0.55);
+  color: #ffe9a3;
+  cursor: pointer;
+  font-family: 'Cinzel', serif;
+  letter-spacing: 1px;
+  margin-right: 0.75rem;
+  padding: 0.3rem 0.55rem;
+}
+
+.edit-field input:focus-visible,
+.edit-field select:focus-visible,
+.edit-field textarea:focus-visible {
+  outline: 2px solid rgba(212, 175, 55, 0.85);
+  outline-offset: 0.25rem;
+}
+
+.details-fields {
+  display: grid;
+  gap: 0.8rem;
+  margin: 0;
+}
+
+.details-fields div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.description-box summary,
+.description-box p {
+  background: linear-gradient(
+    180deg,
+    #ffe9a3,
+    #d4af37 45%,
+    #8c5a18 75%,
+    #4b2805
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-family: 'Cinzel', serif;
+  text-shadow:
+    2px 3px 5px rgba(0,0,0,0.95),
+    0 0 10px rgba(212,175,55,0.75);
+}
+
+.details-fields dt {
+  color: #cfa34a;
+  filter: none;
+  font-family: 'Cinzel', serif;
+  font-size: 1rem;
+  letter-spacing: 2.5px;
+  text-shadow: 1px 2px 4px rgba(0,0,0,0.9);
+  text-transform: uppercase;
+}
+
+.details-fields dd {
+  color: #ffe9a3;
+  filter: brightness(1.2);
+  font-size: 1.25rem;
+  font-family: 'Cinzel', serif;
+  letter-spacing: 1px;
+  margin: 0;
+  text-shadow:
+    2px 3px 5px rgba(0,0,0,0.95),
+    0 0 10px rgba(212,175,55,0.75);
+}
+
+.description-box {
+  background: rgba(5, 3, 1, 0.38);
+  border: 1px solid rgba(212, 175, 55, 0.45);
+  padding: 0.65rem 0.75rem;
+}
+
+.description-box summary {
+  cursor: pointer;
+  filter: brightness(1.35);
+  font-size: 1.1rem;
+}
+
+.description-box p {
+  background: none;
+  -webkit-background-clip: unset;
+  background-clip: unset;
+  color: #ffe9a3;
+  filter: brightness(1.15);
+  font-size: 1.12rem;
+  line-height: 1.55;
+  margin: 0.75rem 0 0;
 }
 
 /* Responsive breakpoint for mobile */

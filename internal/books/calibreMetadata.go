@@ -304,7 +304,7 @@ func (h *Handler) ParseMetadata(opfPath string) (*BookMetadataCandidate, error) 
 		Title:           title,
 		Author:          strings.Join(nonEmptyStrings(payload.Metadata.Creators), ", "),
 		Description:     cleanCalibreDescription(payload.Metadata.Description),
-		Genres:          nonNilStrings(NormalizeGenres(payload.Metadata.Subjects)),
+		Genres:          NormalizeGenres(payload.Metadata.Subjects),
 		Language:        firstString(payload.Metadata.Languages),
 		PublicationYear: calibrePublicationYear(payload.Metadata.Date),
 		ISBN:            calibreISBN(payload.Metadata.Identifiers),

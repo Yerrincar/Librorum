@@ -76,7 +76,7 @@ async function submitLogout() {
 
             <li class="links">
               <RouterLink to="/books/import">
-                Import Books
+                Add Books
               </RouterLink>
             </li>
 
