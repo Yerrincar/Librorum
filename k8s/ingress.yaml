@@ -1,0 +1,18 @@
+---
+apiVersion: v1
+kind: Ingress
+metadata:
+  name: librorum
+  namespace: librorum
+spec:
+  ingressClassName: traefik
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: librorum
+                port:
+                  number: 80

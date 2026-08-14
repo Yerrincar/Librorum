@@ -11,6 +11,46 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const deleteItemFromLibrary = `-- name: DeleteItemFromLibrary :one
+DELETE FROM library_items
+WHERE id = $1 AND user_id = $2
+RETURNING id, user_id, kind, title, author, description, language, publication_year, genres, rating, ownership_status, reading_status, publication_status, current_chapter, total_chapters, read_at, cover_path, notes, search_vector, created_at, updated_at
+`
+
+type DeleteItemFromLibraryParams struct {
+	ID     int64 `json:"id"`
+	UserID int64 `json:"user_id"`
+}
+
+func (q *Queries) DeleteItemFromLibrary(ctx context.Context, arg DeleteItemFromLibraryParams) (LibraryItem, error) {
+	row := q.db.QueryRow(ctx, deleteItemFromLibrary, arg.ID, arg.UserID)
+	var i LibraryItem
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Kind,
+		&i.Title,
+		&i.Author,
+		&i.Description,
+		&i.Language,
+		&i.PublicationYear,
+		&i.Genres,
+		&i.Rating,
+		&i.OwnershipStatus,
+		&i.ReadingStatus,
+		&i.PublicationStatus,
+		&i.CurrentChapter,
+		&i.TotalChapters,
+		&i.ReadAt,
+		&i.CoverPath,
+		&i.Notes,
+		&i.SearchVector,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const insertBook = `-- name: InsertBook :one
 INSERT INTO library_items (user_id, kind, title, author, description, language, publication_year, genres, rating, 
     ownership_status, reading_status, publication_status, current_chapter, total_chapters,

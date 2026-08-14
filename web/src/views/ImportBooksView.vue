@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { RouterLink } from 'vue-router'
+import FantasyDateTimePicker from '@/components/FantasyDateTimePicker.vue'
 import FantasySelect, { type FantasySelectOption } from '@/components/FantasySelect.vue'
 import { getCurrentUser, type UserResponse } from '@/api/auth'
 import {
@@ -298,10 +299,13 @@ async function submitImport() {
               <input v-model="form.current_chapter" name="current_chapter" type="number" min="0" step="0.01" />
             </label>
 
-            <label class="read-at-field">
-              Read at
-              <input v-model="form.read_at" name="read_at" type="datetime-local" />
-            </label>
+            <FantasyDateTimePicker
+              id="read-at"
+              v-model="form.read_at"
+              class="read-at-field"
+              label="Read at"
+              name="read_at"
+            />
 
             <label class="notes-field">
               Notes

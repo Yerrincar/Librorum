@@ -75,3 +75,8 @@ UPDATE library_items SET
     updated_at = now() 
 WHERE id = sqlc.arg('id') AND user_id = sqlc.arg('user_id') 
 RETURNING *;
+
+-- name: DeleteItemFromLibrary :one
+DELETE FROM library_items
+WHERE id = sqlc.arg('id') AND user_id = sqlc.arg('user_id')
+RETURNING *;

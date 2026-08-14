@@ -148,7 +148,9 @@ function hasValue(value: string) {
   align-items: center;
   justify-content: flex-start;
 
-  background-image: url('../../images/ARGONATH.jpg');
+  background-image:
+    linear-gradient(rgba(0, 0, 0, 0.24), rgba(0, 0, 0, 0.24)),
+    url('../../images/ARGONATH.jpg');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -178,16 +180,16 @@ form {
   width: 100%;
 
   border: none;
-  border-bottom: 2px solid #140b01;
+  border-bottom: 1px solid rgba(75, 40, 5, 0.92);
 
-  outline: 2px solid transparent;
-  outline-offset: 4px;
+  outline: none;
 
-  color: #140b01;
+  color: #5f3608;
 
   padding: 7px 0;
 
   background: transparent;
+  text-shadow: 0 1px 1px rgba(255,233,163,0.25);
 
   transition: border-color 0.2s;
 }
@@ -207,9 +209,21 @@ form {
   font-family: 'Cinzel', serif;
   font-size: 1.2rem;
 
-  color: #140b01;
+  background: linear-gradient(
+    180deg,
+    #b98219,
+    #7a4a0a 45%,
+    #5a2f05 75%,
+    #261401
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: brightness(1.05);
 
   pointer-events: none;
+  text-shadow:
+    0 1px 1px rgba(255,233,163,0.28);
   transition: color 0.2s, font-weight 0.2s, top 0.2s;
 }
 
@@ -218,23 +232,23 @@ form {
 
   border-image: linear-gradient(
     to right,
-    #7B3F00,
-    #FF8C00
+    #8c5a18,
+    #5f3608,
+    #261401
   );
 
   border-image-slice: 1;
 }
 
 .form__field:focus-visible {
-  outline: 2px solid rgba(255, 140, 0, 0.45);
-  outline-offset: 4px;
+  outline: none;
 }
 
 
 .form__field:focus ~ .form__label {
   top: 0;
 
-  color: #9c570b;
+  filter: brightness(0.9);
   font-weight: 700;
 }
 
@@ -245,33 +259,23 @@ form {
 
 .form__group.filled .form__label {
   top: 0;
-  color: #9c570b;
+  filter: brightness(0.9);
   font-weight: 700;
 }
 
 button {
-  width: 120px;
-
   justify-self: center;
-
   padding: 0.5rem 1rem;
-
-  border: none;
-  border-radius: 0.4rem;
-
-  background: linear-gradient(
-    to right,
-    #7B3F00,
-    #7B3F00
-  );
-
-  color: white;
-
+  border: 1px solid rgba(75, 40, 5, 0.85);
+  border-radius: 0;
+  background: transparent;
+  color: #5f3608;
   cursor: pointer;
-
   font-family: 'Cinzel', serif;
   font-size: 0.9rem;
   letter-spacing: 0.8px;
+  text-shadow:
+    0 1px 1px rgba(255,233,163,0.25);
 }
 
 
@@ -282,17 +286,21 @@ button:disabled {
 
 
 button:focus-visible {
-  outline: 2px solid #ff8c00;
+  outline: 2px solid rgba(158, 101, 18, 0.9);
   outline-offset: 4px;
 }
 
 
 .error {
-  color: #b00020;
+  color: #ff9b85;
+  font-family: 'Cinzel', serif;
+  text-shadow: 1px 2px 4px rgba(0,0,0,0.95);
 }
 
 
 .success {
-  color: #176b36;
+  color: #5f3608;
+  font-family: 'Cinzel', serif;
+  text-shadow: 1px 2px 4px rgba(0,0,0,0.95);
 }
 </style>

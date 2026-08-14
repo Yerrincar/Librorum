@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
+import FantasyDateTimePicker from '@/components/FantasyDateTimePicker.vue'
 import FantasySelect from '@/components/FantasySelect.vue'
 import {
   bookAuthor,
@@ -11,11 +12,13 @@ import {
   bookLanguage,
   bookNotes,
   bookOwnershipStatus,
+  bookOwnershipStatusLabel,
   bookReadAtInput,
   bookRating,
   bookReadMonthYear,
   bookReadingStatus,
   bookTitle,
+  deleteLibraryItem,
   bookTotalChapters,
   fetchBooks,
   fetchReadingYears,
@@ -51,6 +54,8 @@ const activeView = ref<'covers' | 'grid'>('covers')
 const selectedBook = ref<LibraryItemResponse>()
 const editingBook = ref(false)
 const savingBook = ref(false)
+const deletingBook = ref(false)
+const confirmingDelete = ref(false)
 const updateErrorMessage = ref('')
 const editForm = ref<EditBookForm>(emptyEditBookForm())
 const activePage = ref(1)
@@ -162,14 +167,26 @@ function startBookEdit() {
 
   editForm.value = editBookForm(selectedBook.value)
   updateErrorMessage.value = ''
+  confirmingDelete.value = false
   editingBook.value = true
 }
 
 function cancelBookEdit() {
   editingBook.value = false
   savingBook.value = false
+  deletingBook.value = false
+  confirmingDelete.value = false
   updateErrorMessage.value = ''
   editForm.value = emptyEditBookForm()
+}
+
+function startBookDelete() {
+  updateErrorMessage.value = ''
+  confirmingDelete.value = true
+}
+
+function cancelBookDelete() {
+  confirmingDelete.value = false
 }
 
 function onCoverFileChange(event: Event) {
@@ -205,6 +222,34 @@ async function confirmBookEdit() {
   } finally {
     savingBook.value = false
   }
+}
+
+async function confirmBookDelete() {
+  const bookId = selectedBook.value?.id
+  if (!bookId) {
+    updateErrorMessage.value = 'Book id is missing'
+    return
+  }
+
+  deletingBook.value = true
+  confirmingDelete.value = false
+  updateErrorMessage.value = ''
+
+  try {
+    await deleteLibraryItem(bookId)
+    selectedBook.value = undefined
+    await loadBooks(activeKind.value, activePage.value)
+    await loadReadingYears(activeKind.value)
+  } catch (error) {
+    updateErrorMessage.value = error instanceof Error ? error.message : 'Book delete failed'
+  } finally {
+    deletingBook.value = false
+  }
+}
+
+function selectedBookKindLabel() {
+  const kind = selectedBook.value?.kind ?? selectedBook.value?.Kind ?? 'book'
+  return kind.replaceAll('_', ' ')
 }
 
 function emptyEditBookForm(): EditBookForm {
@@ -386,8 +431,20 @@ function editBookForm(book: LibraryItemResponse): EditBookForm {
             <button type="button" :disabled="savingBook" @click="cancelBookEdit">Cancel</button>
           </template>
           <template v-else>
-            <button type="button" @click="startBookEdit">Edit</button>
-            <button type="button" aria-label="Close details" @click="closeBookDetails">Close</button>
+            <template v-if="confirmingDelete">
+              <span class="delete-confirmation">
+                Are you sure you want to delete this {{ selectedBookKindLabel() }} from the library?
+              </span>
+              <button type="button" :disabled="deletingBook" @click="confirmBookDelete">Yes</button>
+              <button type="button" :disabled="deletingBook" @click="cancelBookDelete">No</button>
+            </template>
+            <template v-else>
+              <button type="button" @click="startBookEdit">Edit</button>
+              <button type="button" :disabled="deletingBook" @click="startBookDelete">
+                {{ deletingBook ? 'Deleting…' : 'Delete' }}
+              </button>
+              <button type="button" aria-label="Close details" @click="closeBookDetails">Close</button>
+            </template>
           </template>
         </div>
         <div class="details-cover">
@@ -441,10 +498,13 @@ function editBookForm(book: LibraryItemResponse): EditBookForm {
                 <option value="wishlist">Wishlist</option>
               </select>
             </label>
-            <label class="edit-field">
-              Read at
-              <input v-model="editForm.read_at" name="read_at" type="datetime-local" />
-            </label>
+            <FantasyDateTimePicker
+              id="edit-read-at"
+              v-model="editForm.read_at"
+              class="edit-field"
+              label="Read at"
+              name="read_at"
+            />
           </form>
           <dl v-else class="details-fields">
             <div>
@@ -465,7 +525,7 @@ function editBookForm(book: LibraryItemResponse): EditBookForm {
             </div>
             <div>
               <dt>Ownership status</dt>
-              <dd>{{ bookOwnershipStatus(selectedBook) || 'none' }}</dd>
+              <dd>{{ bookOwnershipStatusLabel(selectedBook) || 'none' }}</dd>
             </div>
             <div>
               <dt>Genres</dt>
@@ -889,7 +949,20 @@ article {
   top: 1rem;
   right: 1rem;
   display: flex;
+  align-items: center;
+  flex-wrap: wrap;
   gap: 0.5rem;
+}
+
+.delete-confirmation {
+  color: #ffe9a3;
+  font-family: 'Cinzel', serif;
+  font-size: 0.9rem;
+  letter-spacing: 1px;
+  max-width: 22rem;
+  text-shadow:
+    2px 3px 5px rgba(0,0,0,0.95),
+    0 0 8px rgba(212,175,55,0.55);
 }
 
 .details-actions button {

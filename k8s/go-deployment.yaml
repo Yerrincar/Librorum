@@ -1,0 +1,44 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: librorum
+  namespace: librorum
+  labels:
+    app: librorum
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: librorum
+  template:
+    metadata:
+      labels:
+        app: librorum
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+    spec:
+      containers:
+        - name: librorum
+          image: librorum-image
+          imagePullPolicy: Always
+          resources:
+            requests:
+              memory: "12Mi"
+              cpu: "2m"
+          ports:
+            - name: http
+              containerPort: 4545
+              protocol: TCP
+
+          readinessProbe:
+            httpGet:
+              path: /
+              port: web
+          livenessProbe:
+            httpGet:
+              path: /
+              port: web

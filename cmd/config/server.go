@@ -91,6 +91,8 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("POST /books/read_years", a.BookHandler.DisplayReadingYears)
 	//PUT
 	mux.HandleFunc("PUT /books/library-items/{id}", a.BookHandler.UpdateFields)
+	//DELETE
+	mux.HandleFunc("DELETE /books/delete-item/{id}", a.BookHandler.DeleteItem)
 
 	return logRequests(mux)
 }

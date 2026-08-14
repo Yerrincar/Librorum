@@ -15,23 +15,23 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:8080',
+        target: 'http://localhost:4545',
         changeOrigin: true,
       },
       '/healthz': {
-        target: 'http://localhost:8080',
+        target: 'http://localhost:4545',
         changeOrigin: true,
       },
       '/users': {
-        target: 'http://localhost:8080',
+        target: 'http://localhost:4545',
         changeOrigin: true,
       },
       '/books': {
-        target: 'http://localhost:8080',
+        target: 'http://localhost:4545',
         changeOrigin: true,
       },
       '/covers': {
-        target: 'http://localhost:8080',
+        target: 'http://localhost:4545',
         changeOrigin: true,
       },
     },

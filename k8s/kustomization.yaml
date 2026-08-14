@@ -7,5 +7,5 @@ resources:
 
 images:
   - name: trames-image
-    newName: ghcr.io/yerrincar/trames
+    newName: ghcr.io/yerrincar/librorum
     newTag: 1.0.0

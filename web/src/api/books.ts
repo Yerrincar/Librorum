@@ -117,6 +117,14 @@ type ReadingYearsResponse =
 
 const monthYearFormatter = new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' })
 
+const ownershipStatusLabels: Record<string, string> = {
+  none: 'None',
+  owned_physical: 'Owned physical',
+  owned_digital: 'Owned digital',
+  owned_physical_and_digital: 'Owned physical and digital',
+  wishlist: 'Wishlist',
+}
+
 export async function importEpubBook(payload: ImportBookRequest): Promise<LibraryItemResponse> {
   const form = bookFormData(payload)
   form.append('file', payload.file)
@@ -325,6 +333,19 @@ export async function updateLibraryItem(payload: UpdateLibraryItemRequest): Prom
   return response.json()
 }
 
+export async function deleteLibraryItem(id: number): Promise<LibraryItemResponse> {
+  const response = await fetch(`/books/delete-item/${id}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  })
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, 'Book delete failed'))
+  }
+
+  return response.json()
+}
+
 export function bookTitle(book: LibraryItemResponse): string {
   return book.title ?? book.Title ?? 'Untitled'
 }
@@ -351,6 +372,11 @@ export function bookNotes(book: LibraryItemResponse): string {
 
 export function bookOwnershipStatus(book: LibraryItemResponse): string {
   return book.ownership_status ?? book.Ownership_status ?? ''
+}
+
+export function bookOwnershipStatusLabel(book: LibraryItemResponse): string {
+  const status = bookOwnershipStatus(book)
+  return ownershipStatusLabels[status] ?? status.replaceAll('_', ' ')
 }
 
 export function bookReadingStatus(book: LibraryItemResponse): string {

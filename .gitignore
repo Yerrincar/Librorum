@@ -17,6 +17,7 @@ data/
 coverage.*
 *.coverprofile
 profile.cov
+littleNotes.md
 
 # Dependency directories (remove the comment below to include it)
 # vendor/

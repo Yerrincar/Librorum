@@ -1,0 +1,15 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: librorum
+  namespace: librorum
+spec:
+  type: ClusterIP
+  selector:
+    app: librorum
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: http

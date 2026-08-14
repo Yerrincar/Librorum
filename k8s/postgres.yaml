@@ -1,0 +1,80 @@
+---
+apiVersion: apps/v1
+kind: persistentVolumeClaim
+metadata:
+  name: postgres
+spec:
+  accesMode:
+    - ReadWriteOnce
+  resources:
+    requests:
+    storage: 5Gi
+  storageClassName: standard
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: postgres
+
+  strategy:
+    type: RollingUpdate
+
+  template:
+    metadata:
+      labels:
+        app: postgres
+
+  spec:
+    containers:
+      - name: postgres
+        image: postgres:16
+
+        ports:
+          - name: postgres
+            containerPort: 5432
+        # TO-DO
+        env:
+
+        resources:
+          requests:
+            cpu: 250m
+            memory: 256Mi
+          limits:
+            cpu: 1000m
+            memory: 512Mi
+
+        volumeMounts:
+          - name: postgres-data
+            mountPath: /var/lib/postgresql/data
+
+  volumeClaimTemplates:
+    - metadata:
+        name: postgres-data
+      spec:
+        accesMode:
+          - ReadWriteOnce
+      resources:
+        requests:
+          storage: 10Gi
+      storageClassName: standard
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+spec:
+  ClusterIP: None
+  selector:
+    app: postgres
+  ports:
+    - name: postgres
+      protocol: TCP
+      port: 5432
+      targetPort: 5432
+---
