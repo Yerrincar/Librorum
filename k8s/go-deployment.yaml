@@ -33,6 +33,9 @@ spec:
             - name: http
               containerPort: 4545
               protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: librorum-config
 
           readinessProbe:
             httpGet:

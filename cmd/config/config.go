@@ -3,6 +3,9 @@ package config
 import (
 	"encoding/hex"
 	"flag"
+	"fmt"
+	"net"
+	"net/url"
 	"os"
 	"strconv"
 	"time"
@@ -16,7 +19,12 @@ type Config struct {
 	OLContact         string
 	GoogleBooksAPIKey string
 	DB                struct {
-		dsn            string
+		host           string
+		port           string
+		username       string
+		password       string
+		name           string
+		sslMode        string
 		maxConnections int
 		maxIdleTime    int
 	}
@@ -51,7 +59,12 @@ func LoadConfig(l *Logger) (*Config, error) {
 	var cfg Config
 
 	flag.IntVar(&cfg.DB.maxConnections, "db-max-open-conns", maxOpenConns, "PostgreSQL max open connections")
-	flag.StringVar(&cfg.DB.dsn, "db-dns", os.Getenv("LIBRORUM_DATABASE_URL"), "PostgreSQL DSN")
+	flag.StringVar(&cfg.DB.host, "db-host", os.Getenv("DB_HOST"), "PostgreSQL host")
+	flag.StringVar(&cfg.DB.port, "db-port", os.Getenv("DB_PORT"), "PostgreSQL port")
+	flag.StringVar(&cfg.DB.username, "db-username", os.Getenv("DB_USER"), "PostgreSQL username")
+	cfg.DB.password = os.Getenv("DB_PASSWORD")
+	flag.StringVar(&cfg.DB.name, "db-name", os.Getenv("DB_NAME"), "PostgreSQL database name")
+	flag.StringVar(&cfg.DB.sslMode, "db-ssl-mode", os.Getenv("DB_SSL_MODE"), "PostgreSQL SSL mode")
 	flag.IntVar(&cfg.DB.maxIdleTime, "db-max-idle-time", maxIdleTime, "PostgreSQL max idle time")
 	flag.StringVar(&cfg.DataDir, "data-dir", os.Getenv("LIBRORUM_DATA_DIR"), "Data directory")
 	flag.StringVar(&cfg.Addr, "addr", os.Getenv("LIBRORUM_ADDR"), "Address")
@@ -80,4 +93,28 @@ func LoadConfig(l *Logger) (*Config, error) {
 	flag.Parse()
 
 	return &cfg, nil
+}
+
+func (cfg *Config) databaseDSN() (string, error) {
+	if cfg.DB.host == "" || cfg.DB.port == "" || cfg.DB.username == "" || cfg.DB.password == "" || cfg.DB.name == "" {
+		return "", fmt.Errorf("missing required database configuration")
+	}
+
+	databaseURL := &url.URL{
+		Scheme: "postgres",
+		User:   url.UserPassword(cfg.DB.username, cfg.DB.password),
+		Host:   net.JoinHostPort(cfg.DB.host, cfg.DB.port),
+		Path:   "/" + cfg.DB.name,
+	}
+	if cfg.DB.sslMode != "" {
+		query := databaseURL.Query()
+		query.Set("sslmode", cfg.DB.sslMode)
+		databaseURL.RawQuery = query.Encode()
+	}
+
+	return databaseURL.String(), nil
+}
+
+func (cfg *Config) databaseConfigured() bool {
+	return cfg.DB.host != "" && cfg.DB.port != "" && cfg.DB.username != "" && cfg.DB.password != "" && cfg.DB.name != ""
 }

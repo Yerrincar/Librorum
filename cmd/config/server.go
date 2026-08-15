@@ -58,7 +58,7 @@ func (a *App) Serve(l *Logger, cfg *Config) error {
 	})
 
 	log.Printf("librorum listening on %s", cfg.Addr)
-	log.Printf("database url configured: %t", os.Getenv("LIBRORUM_DATABASE_URL") != "")
+	log.Printf("database config configured: %t", cfg.databaseConfigured())
 	if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Fatalf("http server: %v", err)
 	}

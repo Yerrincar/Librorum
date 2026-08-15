@@ -180,16 +180,18 @@ form {
   width: 100%;
 
   border: none;
-  border-bottom: 1px solid rgba(75, 40, 5, 0.92);
+  border-bottom: 1px solid rgba(212, 175, 55, 0.82);
 
   outline: none;
 
-  color: #5f3608;
+  color: #fff0ad;
 
   padding: 7px 0;
 
   background: transparent;
-  text-shadow: 0 1px 1px rgba(255,233,163,0.25);
+  text-shadow:
+    2px 3px 5px rgba(0,0,0,0.98),
+    0 0 8px rgba(0,0,0,0.72);
 
   transition: border-color 0.2s;
 }
@@ -211,19 +213,20 @@ form {
 
   background: linear-gradient(
     180deg,
-    #b98219,
-    #7a4a0a 45%,
-    #5a2f05 75%,
-    #261401
+    #ffe9a3,
+    #d4af37 45%,
+    #8c5a18 75%,
+    #4b2805
   );
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
-  filter: brightness(1.05);
+  filter: brightness(1.28);
 
   pointer-events: none;
   text-shadow:
-    0 1px 1px rgba(255,233,163,0.28);
+    2px 3px 5px rgba(0,0,0,0.98),
+    0 0 10px rgba(212,175,55,0.45);
   transition: color 0.2s, font-weight 0.2s, top 0.2s;
 }
 
@@ -232,9 +235,9 @@ form {
 
   border-image: linear-gradient(
     to right,
-    #8c5a18,
-    #5f3608,
-    #261401
+    #ffe9a3,
+    #d4af37,
+    #8c5a18
   );
 
   border-image-slice: 1;
@@ -248,7 +251,7 @@ form {
 .form__field:focus ~ .form__label {
   top: 0;
 
-  filter: brightness(0.9);
+  filter: brightness(1.45);
   font-weight: 700;
 }
 
@@ -259,23 +262,33 @@ form {
 
 .form__group.filled .form__label {
   top: 0;
-  filter: brightness(0.9);
+  filter: brightness(1.45);
   font-weight: 700;
 }
 
 button {
   justify-self: center;
   padding: 0.5rem 1rem;
-  border: 1px solid rgba(75, 40, 5, 0.85);
+  border: 1px solid rgba(212, 175, 55, 0.72);
   border-radius: 0;
-  background: transparent;
-  color: #5f3608;
+  background: linear-gradient(
+    180deg,
+    #ffe9a3,
+    #d4af37 45%,
+    #8c5a18 75%,
+    #4b2805
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
   cursor: pointer;
   font-family: 'Cinzel', serif;
   font-size: 0.9rem;
   letter-spacing: 0.8px;
   text-shadow:
-    0 1px 1px rgba(255,233,163,0.25);
+    2px 3px 5px rgba(0,0,0,0.98),
+    0 0 10px rgba(212,175,55,0.45);
+  filter: brightness(1.22);
 }
 
 
@@ -299,7 +312,7 @@ button:focus-visible {
 
 
 .success {
-  color: #5f3608;
+  color: #fff0ad;
   font-family: 'Cinzel', serif;
   text-shadow: 1px 2px 4px rgba(0,0,0,0.95);
 }
