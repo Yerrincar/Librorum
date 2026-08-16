@@ -40,9 +40,9 @@ type Config struct {
 }
 
 func LoadConfig(l *Logger) (*Config, error) {
-	err := godotenv.Load(".env")
+	err := godotenv.Load("./.env")
 	if err != nil {
-		l.Fatal("Error trying to Load .env: "+err.Error(), nil)
+		l.Info("Error trying to Load .env: "+err.Error(), nil)
 	}
 
 	maxOpenConnsStr := os.Getenv("DB_MAX_OPEN_CONNS")

@@ -1,5 +1,5 @@
 ---
-apiVersion: appps/v1
+apiVersion: v1
 kind: ConfigMap
 metadata:
   name: librorum-config
