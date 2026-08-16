@@ -15,12 +15,10 @@ spec:
     metadata:
       labels:
         app: librorum
-  strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 1
     spec:
+      imagePullSecrets:
+        - name: ghcr-pull
+
       containers:
         - name: librorum
           image: librorum-image
@@ -30,18 +28,25 @@ spec:
               memory: "12Mi"
               cpu: "2m"
           ports:
-            - name: http
+            - name: web
               containerPort: 4545
               protocol: TCP
           envFrom:
             - configMapRef:
                 name: librorum-config
+            - secretRef:
+                name: librorum-secret
 
           readinessProbe:
             httpGet:
-              path: /
-              port: web
+              path: /health
+              port: 4545
           livenessProbe:
             httpGet:
               path: /
-              port: web
+              port: 4545
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1

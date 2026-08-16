@@ -1,14 +1,14 @@
 ---
-apiVersion: apps/v1
-kind: persistentVolumeClaim
+apiVersion: v1
+kind: PersistentVolumeClaim
 metadata:
   name: postgres
 spec:
-  accesMode:
+  accessModes:
     - ReadWriteOnce
   resources:
     requests:
-    storage: 5Gi
+      storage: 5Gi
   storageClassName: standard
 ---
 apiVersion: apps/v1
@@ -22,7 +22,7 @@ spec:
     matchLabels:
       app: postgres
 
-  strategy:
+  updateStrategy:
     type: RollingUpdate
 
   template:
@@ -30,46 +30,46 @@ spec:
       labels:
         app: postgres
 
-  spec:
-    containers:
-      - name: postgres
-        image: postgres:16
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16
 
-        ports:
-          - name: postgres
-            containerPort: 5432
-        # TO-DO
-        env:
+          ports:
+            - name: postgres
+              containerPort: 5432
+          # TO-DO
+          env:
 
-        resources:
-          requests:
-            cpu: 250m
-            memory: 256Mi
-          limits:
-            cpu: 1000m
-            memory: 512Mi
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 512Mi
 
-        volumeMounts:
-          - name: postgres-data
-            mountPath: /var/lib/postgresql/data
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
 
   volumeClaimTemplates:
     - metadata:
         name: postgres-data
       spec:
-        accesMode:
+        accessModes:
           - ReadWriteOnce
-      resources:
-        requests:
-          storage: 10Gi
-      storageClassName: standard
+        resources:
+          requests:
+            storage: 10Gi
+        storageClassName: standard
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: postgres
 spec:
-  ClusterIP: None
+  type: ClusterIP
   selector:
     app: postgres
   ports:
