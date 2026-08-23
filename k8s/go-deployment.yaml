@@ -23,12 +23,15 @@ spec:
         - name: librorum
           image: librorum-image
           imagePullPolicy: Always
+          volumeMounts:
+            - name: librorum-data
+              mountPath: /app/data
           resources:
             requests:
               memory: "12Mi"
               cpu: "2m"
           ports:
-            - name: web
+            - name: http
               containerPort: 4545
               protocol: TCP
           envFrom:
@@ -39,12 +42,15 @@ spec:
 
           readinessProbe:
             httpGet:
-              path: /health
+              path: /healthz
               port: 4545
           livenessProbe:
             httpGet:
-              path: /
+              path: /healthz
               port: 4545
+      volumes:
+        - name: librorum-data
+          emptyDir: {}
   strategy:
     type: RollingUpdate
     rollingUpdate:

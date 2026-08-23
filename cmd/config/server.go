@@ -10,6 +10,9 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path"
+	"path/filepath"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -80,6 +83,7 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("GET /users/currentUser", a.UserHandler.CurrentUser)
 	mux.HandleFunc("GET /books/library-items", a.BookHandler.DisplayBooks)
 	mux.Handle("GET /covers/", http.StripPrefix("/covers/", http.FileServer(http.Dir(a.BookHandler.Paths.CoverCacheDir))))
+	mux.HandleFunc("GET /", serveWebApp("web/dist"))
 	//POST
 	mux.HandleFunc("POST /users/register", a.UserHandler.Register)
 	mux.HandleFunc("POST /users/login", a.UserHandler.LoginUser)
@@ -95,6 +99,20 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("DELETE /books/delete-item/{id}", a.BookHandler.DeleteItem)
 
 	return logRequests(mux)
+}
+
+func serveWebApp(distDir string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		cleanPath := strings.TrimPrefix(path.Clean("/"+r.URL.Path), "/")
+		if cleanPath != "" {
+			filepath := filepath.Join(distDir, cleanPath)
+			if info, err := os.Stat(filepath); err == nil && !info.IsDir() {
+				http.ServeFile(w, r, filepath)
+				return
+			}
+		}
+		http.ServeFile(w, r, filepath.Join(distDir, "index.html"))
+	}
 }
 
 func logRequests(next http.Handler) http.Handler {
