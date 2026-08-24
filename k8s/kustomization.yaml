@@ -15,4 +15,4 @@ resources:
 images:
   - name: librorum-image
     newName: ghcr.io/yerrincar/librorum
-    newTag: v0.1.4
+    newTag: v0.1.5

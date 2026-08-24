@@ -1,6 +1,6 @@
-ARG GO_IMAGE=golang:1.25-alpine3.22
+ARG GO_IMAGE=golang:1.25-bookworm
 ARG NODE_IMAGE=node:23-alpine3.22
-ARG RUNTIME_IMAGE=alpine:3.22
+ARG RUNTIME_IMAGE=debian:bookworm-slim
 
 # Vue front
 
@@ -20,7 +20,9 @@ FROM ${GO_IMAGE} AS back-build
 
 ARG GOOSE_VERSION=v3.27.2
 
-RUN apk add --no-cache  build-base
+RUN apt-get update \   
+    && apt-get install -y --no-install-recommends build-essential ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /src
 
@@ -41,6 +43,11 @@ RUN CGO_ENABLED=1 GOBIN=/out go install github.com/pressly/goose/v3/cmd/goose@${
 FROM ${RUNTIME_IMAGE}
 
 WORKDIR /app
+
+RUN apt-get update \                                                                                           
+    && apt-get install -y --no-install-recommends ca-certificates calibre \                                         
+    && rm -rf /var/lib/apt/lists/* \                                                                            
+    && command -v fetch-ebook-metadata 
 
 COPY --from=back-build --chown=10002:10002 /out/librorum /app/librorum
 COPY --from=back-build --chown=10002:10002 /out/goose /app/goose
