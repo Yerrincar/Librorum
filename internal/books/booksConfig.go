@@ -24,7 +24,7 @@ type Book struct {
 	Kind               string     `json:"Kind"`
 	Description        string     `json:"Description"`
 	Language           string     `json:"Language"`
-	Publication_year   string     `json:"Publication_year"`
+	PublicationYear    *int32     `json:"publication_year,omitempty"`
 	Genres             []string   `json:"Genres"`
 	Rating             *float64   `json:"Rating,omitempty"`
 	Ownership_status   string     `json:"Ownership_status"`

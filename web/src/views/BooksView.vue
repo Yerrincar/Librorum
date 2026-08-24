@@ -13,6 +13,7 @@ import {
   bookNotes,
   bookOwnershipStatus,
   bookOwnershipStatusLabel,
+  bookPublicationYear,
   bookReadAtInput,
   bookRating,
   bookReadMonthYear,
@@ -485,6 +486,10 @@ function editBookForm(book: LibraryItemResponse): EditBookForm {
               <textarea v-model="editForm.description" name="description" rows="5" />
             </label>
             <label class="edit-field">
+              Notes
+              <textarea v-model="editForm.notes" name="notes" rows="4" />
+            </label>
+            <label class="edit-field">
               Genres
               <input v-model="editForm.genres" name="genres" placeholder="Fantasy, Sci-Fi…" autocomplete="off" />
             </label>
@@ -516,6 +521,10 @@ function editBookForm(book: LibraryItemResponse): EditBookForm {
               <dd>{{ bookAuthor(selectedBook) || 'Unknown' }}</dd>
             </div>
             <div>
+              <dt>Publication year</dt>
+              <dd>{{ bookPublicationYear(selectedBook) || 'Unknown' }}</dd>
+            </div>
+            <div>
               <dt>Rating</dt>
               <dd>{{ bookRating(selectedBook) ? `${bookRating(selectedBook)}/5` : 'Unrated' }}</dd>
             </div>
@@ -539,6 +548,10 @@ function editBookForm(book: LibraryItemResponse): EditBookForm {
                   <p>{{ bookDescription(selectedBook) || 'No description' }}</p>
                 </details>
               </dd>
+            </div>
+            <div>
+              <dt>Notes</dt>
+              <dd>{{ bookNotes(selectedBook) || 'No notes' }}</dd>
             </div>
           </dl>
         </div>

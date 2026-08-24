@@ -401,7 +401,7 @@ h1 {
   font-size: clamp(2.1rem, 4vw, 3rem);
   letter-spacing: 4px;
   margin: 0;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 h2,
@@ -445,7 +445,7 @@ form {
   align-items: stretch;
   display: grid;
   gap: 0.65rem;
-  grid-template-columns: minmax(11rem, 0.7fr) minmax(13rem, 0.75fr) minmax(22rem, 2fr);
+  grid-template-columns: minmax(min(100%, 11rem), 0.7fr) minmax(min(100%, 13rem), 0.75fr) minmax(min(100%, 22rem), 2fr);
   width: 100%;
 }
 
@@ -459,12 +459,13 @@ form {
   height: 100%;
   min-height: 8.25rem;
   min-width: 0;
+  overflow-wrap: anywhere;
   padding: 0.75rem 0.85rem;
 }
 
 .import-heading h1 {
-  font-size: clamp(1.55rem, 2.8vw, 2.15rem);
-  letter-spacing: 3px;
+  font-size: clamp(1.35rem, 2.7vw, 2.15rem);
+  letter-spacing: clamp(1.5px, 0.45vw, 3px);
   line-height: 1.05;
 }
 
@@ -693,6 +694,7 @@ button:disabled {
   font-family: 'Cinzel', serif;
   font-size: 0.82rem;
   letter-spacing: 1px;
+  overflow-wrap: anywhere;
 }
 
 @media (max-width: 1050px) {

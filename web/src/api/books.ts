@@ -52,6 +52,7 @@ export type LibraryItemResponse = {
   description?: string
   genres?: string[] | null
   language?: string
+  publication_year?: number | string | null
   rating?: number | null
   ownership_status?: string
   reading_status?: string
@@ -66,6 +67,7 @@ export type LibraryItemResponse = {
   Description?: string
   Genres?: string[] | null
   Language?: string
+  Publication_year?: number | string | null
   Rating?: number | null
   Ownership_status?: string
   Reading_status?: string
@@ -360,6 +362,14 @@ export function bookLanguage(book: LibraryItemResponse): string {
 
 export function bookDescription(book: LibraryItemResponse): string {
   return book.description ?? book.Description ?? ''
+}
+
+export function bookPublicationYear(book: LibraryItemResponse): string {
+  const publicationYear = book.publication_year ?? book.Publication_year
+  if (typeof publicationYear === 'number') {
+    return String(publicationYear)
+  }
+  return publicationYear?.trim() ?? ''
 }
 
 export function bookGenres(book: LibraryItemResponse): string {

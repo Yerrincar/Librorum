@@ -104,6 +104,20 @@ async function submitImport() {
           </section>
         </div>
 
+        <section class="source-section columns-section">
+          <h2>Supported columns</h2>
+          <p>
+            Required: title, author. Optional: kind, ownership_status, reading_status,
+            publication_status, read_at, rating, notes, publication_year, format,
+            current_chapter, total_chapters.
+          </p>
+          <p>
+            Human labels are accepted, for example Owned Physical, To Read, and Unread.
+            Format is stored in notes and can also imply physical or digital ownership when
+            ownership_status is blank.
+          </p>
+        </section>
+
         <div class="import-actions">
           <button type="submit" :disabled="loading">
             {{ loading ? 'Importing…' : 'Search and import metadata' }}
@@ -207,7 +221,7 @@ h1 {
   font-size: clamp(2.1rem, 4vw, 3rem);
   letter-spacing: 4px;
   margin: 0;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 h2,
@@ -250,7 +264,7 @@ form {
   align-items: stretch;
   display: grid;
   gap: 0.65rem;
-  grid-template-columns: minmax(11rem, 0.7fr) minmax(18rem, 2fr) minmax(16rem, 1fr);
+  grid-template-columns: minmax(min(100%, 11rem), 0.7fr) minmax(min(100%, 18rem), 2fr) minmax(min(100%, 16rem), 1fr);
   width: 100%;
 }
 
@@ -273,6 +287,7 @@ form {
   gap: 0.45rem;
   min-height: 8.25rem;
   min-width: 0;
+  overflow-wrap: anywhere;
   padding: 0.75rem 0.85rem;
 }
 
@@ -280,9 +295,13 @@ form {
   gap: 0.1rem;
 }
 
+.columns-section {
+  min-height: 0;
+}
+
 .import-heading h1 {
-  font-size: clamp(1.55rem, 2.8vw, 2.15rem);
-  letter-spacing: 3px;
+  font-size: clamp(1.35rem, 2.7vw, 2.15rem);
+  letter-spacing: clamp(1.5px, 0.45vw, 3px);
   line-height: 1.05;
 }
 
@@ -373,6 +392,7 @@ button:disabled {
   font-family: 'Cinzel', serif;
   font-size: 0.82rem;
   letter-spacing: 1px;
+  overflow-wrap: anywhere;
 }
 
 .import-actions {

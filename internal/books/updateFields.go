@@ -208,6 +208,9 @@ func parseOptionalTimestamp(value string) (pgtype.Timestamptz, error) {
 		parsed, err = time.ParseInLocation("2006-01-02T15:04", value, time.Local)
 	}
 	if err != nil {
+		parsed, err = time.ParseInLocation("2006-01-02", value, time.Local)
+	}
+	if err != nil {
 		return pgtype.Timestamptz{}, err
 	}
 

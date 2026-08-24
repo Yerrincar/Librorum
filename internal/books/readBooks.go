@@ -65,6 +65,7 @@ func (h *Handler) DisplayBooks(w http.ResponseWriter, r *http.Request) {
 			Kind:             row.Kind,
 			Description:      row.Description,
 			Language:         row.Language,
+			PublicationYear:  row.PublicationYear,
 			Genres:           row.Genres,
 			Ownership_status: row.OwnershipStatus,
 			Reading_status:   row.ReadingStatus,

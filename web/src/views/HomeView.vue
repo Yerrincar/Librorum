@@ -135,7 +135,9 @@ async function submitLogout() {
 <style scoped>
 
 .home-page {
+  box-sizing: border-box;
   min-height: 100vh;
+  padding: clamp(1rem, 4vw, 3rem);
   width: 100%;
 
   display: flex;
@@ -154,20 +156,23 @@ async function submitLogout() {
 
 
 .home-content {
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  max-width: min(100%, 52rem);
   text-align: center;
-  transform: translateY(-150px);
+  transform: translateY(clamp(-9rem, -14vh, -2rem));
 }
 
 
 .logo {
   margin: 0 0 2rem 0;
   font-family: 'Cinzel', serif;
-  font-size: 5rem;
-  letter-spacing: 5px;
+  font-size: clamp(3rem, 10vw, 5rem);
+  letter-spacing: clamp(2px, 0.8vw, 5px);
+  overflow-wrap: anywhere;
 
   background: linear-gradient(
     180deg,
@@ -203,15 +208,18 @@ async function submitLogout() {
 
 .links {
   font-family: 'Cinzel', serif;
-  font-size: 2rem;
+  font-size: clamp(1.35rem, 4vw, 2rem);
   font-weight: 400;
-  letter-spacing: 3px;
+  letter-spacing: clamp(1.5px, 0.55vw, 3px);
+  max-width: 100%;
 }
 
 
 .links a,
 .links button {
   display: inline-block;
+  max-width: min(100%, 90vw);
+  overflow-wrap: anywhere;
 
   background: linear-gradient(
     180deg,
@@ -264,15 +272,35 @@ async function submitLogout() {
 .message {
   position: absolute;
   bottom: 40px;
+  left: 1rem;
+  right: 1rem;
   font-family: 'Cinzel', serif;
   color: #f5deb3;
+  text-align: center;
 }
 
 
 .error {
   position: absolute;
   bottom: 40px;
+  left: 1rem;
+  right: 1rem;
   color: #b00020;
+  text-align: center;
+}
+
+@media (max-height: 620px) {
+  .home-content {
+    transform: translateY(-1rem);
+  }
+
+  .logo {
+    margin-bottom: 1.25rem;
+  }
+
+  .links__group ul {
+    gap: 0.8rem;
+  }
 }
 
 </style>
